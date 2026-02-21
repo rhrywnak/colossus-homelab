@@ -1,0 +1,16 @@
+# Editor/OS artifacts
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Secrets — never commit
+*.vault
+*.key
+*.pem
+vault_pass*
+
+# Temp files
+*.tmp
+*.bak

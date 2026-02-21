@@ -1,0 +1,137 @@
+variant: fcos
+version: "1.5.0"
+
+# ==============================================================================
+# Colossus PROD Application VM — VM-120 (colossus-prod-app1)
+# ==============================================================================
+# Production deployment of Colossus-Legal on pve-1.
+# Same structure as DEV (VM-220) with PROD-specific configuration.
+# ==============================================================================
+
+passwd:
+  users:
+    - name: core
+      ssh_authorized_keys:
+        - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ1dOykw0BuYrBAagKc3Ra92H9fNm5Nq8mp2N46mUpD6 roman@proxima-centauri"
+
+storage:
+  directories:
+    - path: /var/home/core/data/documents
+      mode: 0755
+
+  files:
+    # ── Network configuration (static IP) ────────────────────────────────────
+    - path: /etc/NetworkManager/system-connections/ens18.nmconnection
+      mode: 0600
+      contents:
+        inline: |
+          [connection]
+          id=ens18
+          type=ethernet
+          interface-name=ens18
+
+          [ipv4]
+          method=manual
+          addresses=10.10.100.120/24
+          gateway=10.10.100.1
+          dns=1.1.1.1;10.10.100.53
+
+          [ipv6]
+          method=disabled
+
+    # ── Backend environment file ─────────────────────────────────────────────
+    - path: /var/home/core/colossus/backend.env
+      mode: 0600
+      user:
+        name: core
+      contents:
+        inline: |
+          NEO4J_URI=bolt://10.10.100.110:7687
+          NEO4J_USER=neo4j
+          NEO4J_PASSWORD=Drwho2010$
+          DOCUMENT_STORAGE_PATH=/data/documents
+          RUST_LOG=warn
+          BACKEND_PORT=3403
+          CORS_ALLOWED_ORIGINS=http://10.10.100.120:5473,http://localhost:5473,https://colossus-legal.cogmai.com
+
+    # ── Frontend environment file ────────────────────────────────────────────
+    - path: /var/home/core/colossus/frontend.env
+      mode: 0600
+      user:
+        name: core
+      contents:
+        inline: |
+          COLOSSUS_API_URL=https://colossus-legal-api.cogmai.com
+
+    # ── Backend Quadlet container definition ─────────────────────────────────
+    - path: /etc/containers/systemd/colossus-backend.container
+      mode: 0644
+      contents:
+        inline: |
+          [Unit]
+          Description=Colossus-Legal Backend (Rust/Axum)
+          After=network-online.target
+          Wants=network-online.target
+
+          [Container]
+          Image=ghcr.io/rhrywnak/colossus-backend:v0.1.0
+          ContainerName=colossus-legal-backend
+          EnvironmentFile=/var/home/core/colossus/backend.env
+          PublishPort=3403:3403
+          Volume=/var/home/core/data/documents:/data/documents:Z
+          AutoUpdate=registry
+
+          [Service]
+          Restart=always
+          RestartSec=10
+
+          [Install]
+          WantedBy=multi-user.target default.target
+
+    # ── Frontend Quadlet container definition ────────────────────────────────
+    - path: /etc/containers/systemd/colossus-frontend.container
+      mode: 0644
+      contents:
+        inline: |
+          [Unit]
+          Description=Colossus-Legal Frontend (React/nginx)
+          After=network-online.target colossus-backend.service
+          Wants=network-online.target
+
+          [Container]
+          Image=ghcr.io/rhrywnak/colossus-frontend:v0.1.0
+          ContainerName=colossus-legal-frontend
+          EnvironmentFile=/var/home/core/colossus/frontend.env
+          PublishPort=5473:5473
+          AutoUpdate=registry
+
+          [Service]
+          Restart=always
+          RestartSec=10
+
+          [Install]
+          WantedBy=multi-user.target default.target
+
+    # ── Python for Ansible management ────────────────────────────────────────
+    - path: /etc/systemd/system/install-python.service
+      mode: 0644
+      contents:
+        inline: |
+          [Unit]
+          Description=Install Python for Ansible
+          After=network-online.target
+          Wants=network-online.target
+          ConditionPathExists=!/usr/bin/python3
+
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/bin/rpm-ostree install --idempotent python3
+          ExecStartPost=/usr/bin/systemctl reboot
+
+          [Install]
+          WantedBy=multi-user.target
+
+systemd:
+  units:
+    - name: install-python.service
+      enabled: true

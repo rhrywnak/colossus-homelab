@@ -1,0 +1,538 @@
+Configuring Storage
+Fedora CoreOS ships with a simple default storage layout: the root partition is the last one and expands to take the full size of the disk. Apart from the boot partition, all data is stored on the root partition. See the Disk layout section for more details.
+
+Below, we provide examples of various ways you can customize this.
+
+Fedora CoreOS requires the root filesystem to be at least 8 GiB. For practical reasons, disk images for some platforms ship with a smaller root filesystem, which by default automatically expands to fill all available disk space. If you add additional partitions after the root filesystem, you must make sure to explicitly resize the root partition as shown below so that it is at least 8 GiB.
+
+Currently, if the root filesystem is smaller than 8 GiB, a warning is emitted on login. Starting from June 2021, if the root filesystem is smaller than 8 GiB and is followed by another partition, Fedora CoreOS will refuse to boot. For more details, see this bug.
+
+Referencing block devices from Ignition
+Many of the examples below will reference a block device, such as /dev/vda. The name of the available block devices depends on the underlying infrastructure (bare metal vs cloud), and often the specific instance type. For example in AWS, some instance types have NVMe drives (/dev/nvme*), others use /dev/xvda*.
+
+If your disk configuration is simple and uses the same disk the OS was booted from then the /dev/disk/by-id/coreos-boot-disk link can be used to conveniently refer to that device. This link is only available during provisioning for the purpose of making it easy to refer to the same disk the OS was booted from.
+
+If you need to access other disks, you can boot a single machine with an Ignition configuration with only SSH access, and then inspect the block devices via e.g. the lsblk command.
+
+For physical hardware, it is recommended to reference devices via the /dev/disk/by-id/ or /dev/disk/by-path links.
+
+Setting up separate /var mounts
+Here’s an example Butane config to set up /var on a separate partition on the same primary disk:
+
+Adding a /var partition to the primary disk
+variant: fcos
+version: 1.6.0
+storage:
+  disks:
+  - # The link to the block device the OS was booted from.
+    device: /dev/disk/by-id/coreos-boot-disk
+    # We do not want to wipe the partition table since this is the primary
+    # device.
+    wipe_table: false
+    partitions:
+    - number: 4
+      label: root
+      # Allocate at least 8 GiB to the rootfs. See NOTE above about this.
+      size_mib: 8192
+      resize: true
+    - size_mib: 0
+      # We assign a descriptive label to the partition. This is important
+      # for referring to it in a device-agnostic way in other parts of the
+      # configuration.
+      label: var
+  filesystems:
+    - path: /var
+      device: /dev/disk/by-partlabel/var
+      # We can select the filesystem we'd like.
+      format: ext4
+      # Ask Butane to generate a mount unit for us so that this filesystem
+      # gets mounted in the real root.
+      with_mount_unit: true
+You can of course mount only a subset of /var into a separate partition. For example, to mount /var/lib/containers:
+
+Adding a /var/lib/containers partition to the primary disk
+variant: fcos
+version: 1.6.0
+storage:
+  disks:
+  - device: /dev/disk/by-id/coreos-boot-disk
+    wipe_table: false
+    partitions:
+    - number: 4
+      label: root
+      # Allocate at least 8 GiB to the rootfs. See NOTE above about this.
+      size_mib: 8192
+      resize: true
+    - size_mib: 0
+      label: containers
+  filesystems:
+    - path: /var/lib/containers
+      device: /dev/disk/by-partlabel/containers
+      format: xfs
+      with_mount_unit: true
+Alternatively, you can also mount storage from a separate disk. For example, here we mount /var/log from a partition on /dev/vdb:
+
+Adding /var/log from a secondary disk
+variant: fcos
+version: 1.6.0
+storage:
+  disks:
+  - device: /dev/vdb
+    wipe_table: false
+    partitions:
+    - size_mib: 0
+      start_mib: 0
+      label: log
+  filesystems:
+    - path: /var/log
+      device: /dev/disk/by-partlabel/log
+      format: xfs
+      with_mount_unit: true
+Defining a disk with multiple partitions
+In this example, we wipe the disk and create two new partitions.
+
+variant: fcos
+version: 1.6.0
+storage:
+  disks:
+    -
+      # Mandatory. We use the World-Wide Number ID of the drive to ensure
+      # uniqueness.
+      device: /dev/disk/by-id/wwn-0x50014e2eb507fcdf
+      # This ensures that the partition table is re-created, along with all
+      # the partitions.
+      wipe_table: true
+      partitions:
+        # The first partition (slot number 1) is 32 GiB and starts at the
+        # beginning of the device. Its type_guid identifies it as a Linux
+        # swap partition.
+        - label: part1
+          number: 1
+          size_mib: 32768
+          start_mib: 0
+          type_guid: 0657fd6d-a4ab-43c4-84e5-0933c84b4f4f
+        # The second partition (implicit slot number 2) will be placed after
+        # partition 1 and will occupy the rest of the available space.
+        # Since type_guid is not specified, it will be a Linux native
+        # partition.
+        - label: part2
+Reconfiguring the root filesystem
+It is possible to reconfigure the root filesystem itself. You can use the path /dev/disk/by-label/root to refer to the original root partition. You must ensure that the new filesystem also has a label of root.
+
+You must have at least 4 GiB of RAM for root reprovisioning to work.
+Here’s an example of moving from xfs to ext4, but reusing the same partition on the primary disk:
+
+Changing the root filesystem to ext4
+variant: fcos
+version: 1.6.0
+storage:
+  filesystems:
+    - device: /dev/disk/by-partlabel/root
+      wipe_filesystem: true
+      format: ext4
+      label: root
+Similarly to the previous section, you can also move the root filesystem entirely. Here, we’re moving root to a RAID0 device:
+
+Moving the root filesystem to RAID0
+variant: fcos
+version: 1.6.0
+storage:
+  raid:
+    - name: myroot
+      level: raid0
+      devices:
+        - /dev/disk/by-id/virtio-disk1
+        - /dev/disk/by-id/virtio-disk2
+  filesystems:
+    - device: /dev/md/myroot
+      format: xfs
+      wipe_filesystem: true
+      label: root
+You don’t need the path or with_mount_unit keys; FCOS knows that the root partition is special and will figure out how to find it and mount it.
+If you want to replicate the boot disk across multiple drives for resiliency to drive failure, you need to mirror all the default partitions (root, boot, EFI System Partition, and bootloader code). There is special Butane config syntax for this:
+
+Mirroring the boot disk onto two drives
+variant: fcos
+version: 1.6.0
+boot_device:
+  mirror:
+    devices:
+      - /dev/sda
+      - /dev/sdb
+Defining a filesystem
+This example demonstrates the process of creating the filesystem by defining and labeling the partitions, combining them into a RAID array, and formatting that array as ext4.
+
+Defining a filesystem on a RAID storage device
+variant: fcos
+version: 1.6.0
+storage:
+  disks:
+  # This defines two partitions, each on its own disk. The disks are
+  # identified by their WWN.
+  - device: /dev/disk/by-id/wwn-0x50014ee261e524e4
+    wipe_table: true
+    partitions:
+    -
+      # Each partition gets a human-readable label.
+      label: "raid.1.1"
+      # Each partition is placed at the beginning of the disk and is 64 GiB
+      # long.
+      number: 1
+      size_mib: 65536
+      start_mib: 0
+  - device: /dev/disk/by-id/wwn-0x50014ee0b8442cd3
+    wipe_table: true
+    partitions:
+    - label: "raid.1.2"
+      number: 1
+      size_mib: 65536
+      start_mib: 0
+  # We use the previously defined partitions as devices in a RAID1 md array.
+  raid:
+    - name: publicdata
+      level: raid1
+      devices:
+      - /dev/disk/by-partlabel/raid.1.1
+      - /dev/disk/by-partlabel/raid.1.2
+  # The resulting md array is used to create an EXT4 filesystem.
+  filesystems:
+    - path: /var/publicdata
+      device: /dev/md/publicdata
+      format: ext4
+      label: PUB
+      with_mount_unit: true
+Encrypted storage (LUKS)
+Here is an example to configure a LUKS device at /var/lib/data.
+
+variant: fcos
+version: 1.6.0
+storage:
+  luks:
+    - name: data
+      device: /dev/vdb
+  filesystems:
+    - path: /var/lib/data
+      device: /dev/mapper/data
+      format: xfs
+      label: DATA
+      with_mount_unit: true
+The root filesystem can also be moved to LUKS. In that case, the LUKS device must be pinned by Clevis. There are two primary pin types available: TPM2 and Tang (or a combination of those using Shamir Secret Sharing).
+
+TPM2 pinning just binds encryption to the physical machine in use. Make sure to understand its threat model before choosing between TPM2 and Tang pinning. For more information, see this section of the Clevis TPM2 pin documentation.
+You must have at least 4 GiB of RAM for root reprovisioning to work.
+There is simplified Butane config syntax for configuring root filesystem encryption and pinning. Here is an example of using it to create a TPM2-pinned encrypted root filesystem:
+
+Encrypting the root filesystem with a TPM2 Clevis pin
+variant: fcos
+version: 1.6.0
+boot_device:
+  luks:
+    tpm2: true
+This is equivalent to the following expanded config:
+
+Encrypting the root filesystem with a TPM2 Clevis pin without using boot_device
+variant: fcos
+version: 1.6.0
+storage:
+  luks:
+    - name: root
+      label: luks-root
+      device: /dev/disk/by-partlabel/root
+      clevis:
+        tpm2: true
+      wipe_volume: true
+  filesystems:
+    - device: /dev/mapper/root
+      format: xfs
+      wipe_filesystem: true
+      label: root
+The expanded config doesn’t include the path or with_mount_unit keys; FCOS knows that the root partition is special and will figure out how to find it and mount it.
+
+This next example binds the root filesystem encryption to PCR 7 which corresponds to the UEFI Boot Component used to track the Secure Boot certificate from memory. Therefore, updates to the UEFI firmware/certificates should not affect the value stored in PCR 7.
+
+Binding for PCR 8 (UEFI Boot Component used to track commands and kernel command line) is not supported as the kernel command line changes with every OS update.
+Encrypting the root filesystem with a TPM2 Clevis pin bound to PCR 7
+variant: fcos
+version: 1.6.0
+storage:
+  luks:
+    - name: root
+      label: luks-root
+      device: /dev/disk/by-partlabel/root
+      clevis:
+        custom:
+          needs_network: false
+          pin: tpm2
+          config: '{"pcr_bank":"sha1","pcr_ids":"7"}'
+      wipe_volume: true
+  filesystems:
+    - device: /dev/mapper/root
+      format: xfs
+      wipe_filesystem: true
+      label: root
+More documentation for the config fields can be found in the clevis man pages: man clevis-encrypt-tpm2
+
+The following clevis command can be used to confirm that the root file system encryption is bound to PCR 7.
+
+$ sudo clevis luks list -d /dev/disk/by-partlabel/root
+1: tpm2 '{"hash":"sha256","key":"ecc","pcr_bank":"sha1","pcr_ids":"7"}'
+Here is an example of the simplified config syntax with Tang:
+
+Encrypting the root filesystem with a Tang Clevis pin
+variant: fcos
+version: 1.6.0
+boot_device:
+  luks:
+    tang:
+      - url: http://192.168.122.1:80
+        thumbprint: bV8aajlyN6sYqQ41lGqD4zlhe0E
+The system will contact the Tang server on boot.
+
+For more information about setting up a Tang server, see the upstream documentation.
+You can configure both Tang and TPM2 pinning (including multiple Tang servers for redundancy). By default, only the TPM2 device or a single Tang server is needed to unlock the root filesystem. This can be changed using the threshold key:
+
+Encrypting the root filesystem with both TPM2 and Tang pins
+variant: fcos
+version: 1.6.0
+boot_device:
+  luks:
+    tang:
+      - url: http://192.168.122.1:80
+        thumbprint: bV8aajlyN6sYqQ41lGqD4zlhe0E
+    tpm2: true
+    # this will allow rootfs unlocking only if both TPM2 and Tang pins are
+    # accessible and valid
+    threshold: 2
+Sizing the root partition
+If you use Ignition to reconfigure or move the root partition, that partition is not automatically grown on first boot (see related discussions in this issue). In the case of moving the root partition to a new disk (or multiple disks), you should set the desired partition size using the size_mib field. If reconfiguring the root filesystem in place, as in the LUKS example above, you can resize the existing partition using the resize field:
+
+Resizing the root partition to its maximum size
+variant: fcos
+version: 1.6.0
+storage:
+  disks:
+    - device: /dev/disk/by-id/coreos-boot-disk
+      partitions:
+        - label: root
+          number: 4
+          # 0 means to use all available space
+          size_mib: 0
+          resize: true
+  luks:
+    - name: root
+      device: /dev/disk/by-partlabel/root
+      clevis:
+        tpm2: true
+      wipe_volume: true
+  filesystems:
+    - device: /dev/mapper/root
+      format: xfs
+      wipe_filesystem: true
+      label: root
+Adding swap
+This example creates a swap partition spanning all of the sdb device, creates a swap area on it, and creates a systemd swap unit so the swap area is enabled on boot.
+
+Configuring a swap partition on a second disk
+variant: fcos
+version: 1.6.0
+storage:
+  disks:
+    - device: /dev/sdb
+      wipe_table: true
+      partitions:
+        - number: 1
+          label: swap
+  filesystems:
+    - device: /dev/disk/by-partlabel/swap
+      format: swap
+      wipe_filesystem: true
+      with_mount_unit: true
+Adding network storage
+Fedora CoreOS systems can be configured to mount network filesystems such as NFS and CIFS. This is best achieved by using Ignition to create systemd units. Filesystems can be mounted on boot by creating a standard mount unit. Alternatively, a filesystem can be mounted when users access the mountpoint by creating an additional automount unit. Below are examples of each for an NFS filesystem.
+
+Configuring NFS mounts
+Creating a systemd unit to mount an NFS filesystem on boot.
+The .mount file must be named based on the path (e.g. /var/mnt/data = var-mnt-data.mount)
+variant: fcos
+version: 1.3.0
+systemd:
+  units:
+    - name: var-mnt-data.mount
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Mount data directory
+
+        [Mount]
+        What=example.org:/data
+        Where=/var/mnt/data
+        Type=nfs4
+
+        [Install]
+        WantedBy=multi-user.target
+Creating a systemd unit to mount an NFS filesystem when users access the mount point (automount)
+variant: fcos
+version: 1.3.0
+systemd:
+  units:
+    - name: var-mnt-data.mount
+      contents: |
+        [Unit]
+        Description=Mount data directory
+
+        [Mount]
+        What=example.org:/data
+        Where=/var/mnt/data
+        Type=nfs4
+
+        [Install]
+        WantedBy=multi-user.target
+
+    - name: var-mnt-data.automount
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Automount data directory
+
+        [Automount]
+        TimeoutIdleSec=20min
+        Where=/var/mnt/data
+
+        [Install]
+        WantedBy=multi-user.target
+Advanced examples
+This example configures a mirrored boot disk with a TPM2-encrypted root filesystem, overrides the sizes of the automatically-generated root partition replicas, and adds an encrypted mirrored /var partition which consumes the remainder of the disks.
+
+Encrypted mirrored boot disk with separate /var
+variant: fcos
+version: 1.6.0
+boot_device:
+  luks:
+    tpm2: true
+  mirror:
+    devices:
+      - /dev/sda
+      - /dev/sdb
+storage:
+  disks:
+    - device: /dev/sda
+      partitions:
+        # Override size of root partition on first disk, via the label
+        # generated for boot_device.mirror
+        - label: root-1
+          size_mib: 10240
+        # Add a new partition filling the remainder of the disk
+        - label: var-1
+    - device: /dev/sdb
+      partitions:
+        # Similarly for second disk
+        - label: root-2
+          size_mib: 10240
+        - label: var-2
+  raid:
+    - name: md-var
+      level: raid1
+      devices:
+        - /dev/disk/by-partlabel/var-1
+        - /dev/disk/by-partlabel/var-2
+  luks:
+    - name: var
+      device: /dev/md/md-var
+      # No key material is specified, so a random key will be generated
+      # and stored in the root filesystem
+  filesystems:
+    - device: /dev/mapper/var
+      path: /var
+      label: var
+      format: xfs
+      wipe_filesystem: true
+      with_mount_unit: true
+Disk Layout
+All Fedora CoreOS systems start with the same disk image which varies slightly between architectures based on what is needed for bootloading. On first boot the root filesystem is expanded to fill the rest of the disk. The disk image can be customized using Butane configs to repartition the disk and create/reformat filesystems. Bare metal installations are not different; the installer only copies the raw image to the target disk and injects the specified config into /boot for use on first boot.
+
+See Reconfiguring the root filesystem for examples regarding the supported changes to the root partition.
+Partition Tables
+Using partition numbers to refer to specific partitions is discouraged and labels or UUIDs should be used instead. Fedora CoreOS reserves the boot, boot-<number>, root, root-<number>, BIOS-BOOT, bios-<number>, EFI-SYSTEM, and esp-<number> labels, and the md-boot and md-root RAID device names. Creating partitions, filesystems, or RAID devices with those labels is not supported.
+
+x86_64 Partition Table
+The x86_64 disk image is GPT formatted with a protective MBR. It supports booting via both BIOS and UEFI (including Secure Boot).
+
+The partition table layout has changed over time. The current layout is:
+
+Table 1. Partition Table for x86_64
+Number
+
+Label
+
+Description
+
+Partition Type
+
+1
+
+BIOS-BOOT
+
+Contains BIOS GRUB image
+
+raw data
+
+2
+
+EFI-SYSTEM
+
+Contains EFI GRUB image and Secure Boot shim
+
+FAT32
+
+3
+
+boot
+
+Contains GRUB configuration, kernel/initramfs images
+
+ext4
+
+4
+
+root
+
+Contains the root filesystem
+
+xfs
+
+The EFI-SYSTEM partition can be deleted or reformatted when BIOS booting. Similarly, the BIOS-BOOT partition can be deleted or reformatted when EFI booting.
+
+Mounted Filesystems
+Fedora CoreOS uses OSTree, which is a system for managing multiple bootable operating system trees that share storage. Each operating system version is part of the / filesystem. All deployments share the same /var which can be on the same filesystem, or mounted separately.
+
+This shows the default mountpoints for a Fedora CoreOS system installed on a /dev/vda disk:
+
+Default mountpoints on x86_64
+$ findmnt --real # Some details are elided
+TARGET        SOURCE                                                   FSTYPE  OPTIONS
+/             /dev/vda4[/ostree/deploy/fedora-coreos/deploy/$hash]     xfs     rw
+|-/sysroot    /dev/vda4                                                xfs     ro
+|-/etc        /dev/vda4[/ostree/deploy/fedora-coreos/deploy/$hash/etc] xfs     rw
+|-/usr        /dev/vda4[/ostree/deploy/fedora-coreos/deploy/$hash/usr] xfs     ro
+|-/var        /dev/vda4[/ostree/deploy/fedora-coreos/deploy/var]       xfs     rw
+`-/boot       /dev/vda3                                                ext4    ro
+The EFI System Partition was formerly mounted on /boot/efi, but this is no longer the case. On systems configured with boot device mirroring, there are independent EFI partitions on each constituent disk.
+
+Immutable /, read only /usr
+As OSTree is used to manage all files belonging to the operating system, the / and /usr mountpoints are not writable. Any changes to the operating system should be applied via rpm-ostree.
+
+Similarly, the /boot mountpoint is not writable, and the EFI System Partition is not mounted by default. These filesystems are managed by rpm-ostree and bootupd, and must not be directly modified by an administrator.
+
+Adding top level directories (i.e. /foo) is currently unsupported and disallowed by the immutable attribute.
+
+The real / (as in the root of the filesystem in the root partition) is mounted readonly in /sysroot and must not be accessed or modified directly.
+
+Configuration in /etc and state in /var
+The only supported writable locations are /etc and /var. /etc should contain only configuration files and is not expected to store data. All data must be kept under /var and will not be touched by system upgrades. Traditional places that might hold state (e.g. /home, or /srv) are symlinks to directories in /var (e.g. /var/home or /var/srv).
+
+Version selection and bootup
+A GRUB menu entry is created for each version of Fedora CoreOS currently available on a system. This menu entry references an ostree deployment which consists of a Linux kernel, an initramfs and a hash linking to an ostree commit (passed via the ostree= kernel argument). During bootup, ostree will read this kernel argument to determine which deployment to use as the root filesystem. Each update or change to the system (package installation, addition of kernel arguments) creates a new deployment. This enables rolling back to a previous deployment if the update causes problems.
+
+
+
+

@@ -1,0 +1,46 @@
+# PHASE_2_GUARDRAILS.md
+
+## ABSOLUTE RULES
+- DO NOT modify VM-200
+- DO NOT delete VM-200 containers
+- DO NOT migrate data in-place
+- DO NOT touch production (pve-1)
+- DO NOT assume filesystem paths
+- DO NOT assume container internals
+- DO NOT skip verification steps
+- DO NOT optimize or refactor images
+- DO NOT proceed without backups present
+
+---
+
+## REQUIRED PRACTICES
+- Always inspect mounts before acting
+- Always stop systemd services, not processes
+- Always use database-native backup/restore tools
+- Always export Qdrant snapshots via HTTP
+- Always use sudo explicitly
+- Always use idempotent commands
+- Always validate before proceeding
+- Always pause if output deviates from expectation
+
+---
+
+## FORBIDDEN SHORTCUTS
+- No filesystem copies of live databases
+- No `find`-based guessing for Qdrant
+- No `neo4j stop` inside containers
+- No container exec against stopped services
+- No “it should be here” assumptions
+
+---
+
+## SESSION OPENING STATEMENT (MANDATORY)
+
+“We are executing Phase 2 of the Colossus Proxmox project.
+Phase 1 and Phase 2 preparation are complete and locked.
+Backups are verified.
+We are provisioning a new DEV CoreOS VM using
+PHASE2_REFAC_BUTANE_VIRTIOFS_v2.zip.
+Do not revisit backup procedures.
+Do not modify VM-200.”
+

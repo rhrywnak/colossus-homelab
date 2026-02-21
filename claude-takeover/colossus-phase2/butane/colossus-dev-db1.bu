@@ -1,0 +1,215 @@
+# =============================================================================
+# Colossus Phase 2 — DEV DB VM (VM-210) Butane Configuration
+# =============================================================================
+# Target:    pve-2 (DEV)
+# VM Name:   colossus-dev-db1
+# VMID:      210
+# Purpose:   PostgreSQL 17, Neo4j 5, Qdrant — all data external via virtiofs
+#
+# IMPORTANT: On Fedora CoreOS, /mnt is a symlink to /var/mnt.
+# systemd mount units require canonical paths (no symlinks), so all
+# paths use /var/mnt/data/ — NOT /mnt/data/.
+# Inside the VM, both /mnt/data/ and /var/mnt/data/ resolve to the same
+# location, but systemd and mount units MUST use /var/mnt/data/.
+#
+# SELINUX: CoreOS runs SELinux in enforcing mode. virtiofs mounts from
+# a non-SELinux host (Proxmox/Debian) appear as virtiofs_t, which
+# containers (container_t) cannot access. The fix is the context= mount
+# option which assigns container_file_t to all files on the mount at the
+# VFS level, without requiring xattr support from the host.
+# Do NOT use :z/:Z on Volume= lines — virtiofs lacks xattr support for
+# SELinux relabeling. The mount-level context= handles it.
+#
+# BEFORE TRANSPILING:
+#   1. Replace CHANGEME_POSTGRES_PASSWORD with your Postgres password
+#   2. Replace CHANGEME_NEO4J_PASSWORD with your Neo4j password
+#   3. Transpile:
+#      podman run --rm -i quay.io/coreos/butane:release --pretty --strict \
+#        < colossus-dev-db1.bu > colossus-dev-db1.ign
+#   4. Copy to pve-2:
+#      scp colossus-dev-db1.ign root@pve-2:/var/coreos/snippets/
+# =============================================================================
+
+variant: fcos
+version: 1.6.0
+
+# --- Hostname ----------------------------------------------------------------
+storage:
+  files:
+    - path: /etc/hostname
+      mode: 0644
+      overwrite: true
+      contents:
+        inline: colossus-dev-db1
+
+    # --- virtiofs mount units ------------------------------------------------
+    # These mount ZFS datasets exposed from pve-2 via Proxmox directory mappings.
+    # What= must match the dirid used in `qm set --virtiofs<N> dirid=<n>`
+    # Where= must use canonical /var/mnt/data/ path (not /mnt/data/).
+    # Filenames must match the escaped mount path:
+    #   /var/mnt/data/postgres → var-mnt-data-postgres.mount
+
+    - path: /etc/systemd/system/var-mnt-data-postgres.mount
+      mode: 0644
+      contents:
+        inline: |
+          [Unit]
+          Description=virtiofs mount — Postgres data (dev-zfs/postgres)
+
+          [Mount]
+          What=db-postgres
+          Where=/var/mnt/data/postgres
+          Type=virtiofs
+          Options=context="system_u:object_r:container_file_t:s0"
+
+          [Install]
+          WantedBy=local-fs.target
+
+    - path: /etc/systemd/system/var-mnt-data-neo4j.mount
+      mode: 0644
+      contents:
+        inline: |
+          [Unit]
+          Description=virtiofs mount — Neo4j data (dev-zfs/neo4j)
+
+          [Mount]
+          What=db-neo4j
+          Where=/var/mnt/data/neo4j
+          Type=virtiofs
+          Options=context="system_u:object_r:container_file_t:s0"
+
+          [Install]
+          WantedBy=local-fs.target
+
+    - path: /etc/systemd/system/var-mnt-data-qdrant.mount
+      mode: 0644
+      contents:
+        inline: |
+          [Unit]
+          Description=virtiofs mount — Qdrant data (dev-zfs/qdrant)
+
+          [Mount]
+          What=db-qdrant
+          Where=/var/mnt/data/qdrant
+          Type=virtiofs
+          Options=context="system_u:object_r:container_file_t:s0"
+
+          [Install]
+          WantedBy=local-fs.target
+
+    # --- Podman Quadlet container definitions --------------------------------
+    # Placed in /etc/containers/systemd/ — systemd's generator creates
+    # corresponding .service units automatically on daemon-reload.
+
+    - path: /etc/containers/systemd/colossus-postgres.container
+      mode: 0644
+      contents:
+        inline: |
+          [Unit]
+          Description=Colossus PostgreSQL 17 (DEV)
+          Requires=var-mnt-data-postgres.mount
+          After=var-mnt-data-postgres.mount
+
+          [Container]
+          ContainerName=colossus-postgres
+          Image=docker.io/library/postgres:17
+          PublishPort=5432:5432
+          Volume=/var/mnt/data/postgres:/var/lib/postgresql/data
+          EnvironmentFile=/etc/colossus/env/postgres.env
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - path: /etc/containers/systemd/colossus-neo4j.container
+      mode: 0644
+      contents:
+        inline: |
+          [Unit]
+          Description=Colossus Neo4j 5 (DEV)
+          Requires=var-mnt-data-neo4j.mount
+          After=var-mnt-data-neo4j.mount
+
+          [Container]
+          ContainerName=colossus-neo4j
+          Image=docker.io/library/neo4j:5
+          PublishPort=7474:7474
+          PublishPort=7687:7687
+          Volume=/var/mnt/data/neo4j:/data
+          EnvironmentFile=/etc/colossus/env/neo4j.env
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - path: /etc/containers/systemd/colossus-qdrant.container
+      mode: 0644
+      contents:
+        inline: |
+          [Unit]
+          Description=Colossus Qdrant (DEV)
+          Requires=var-mnt-data-qdrant.mount
+          After=var-mnt-data-qdrant.mount
+
+          [Container]
+          ContainerName=colossus-qdrant
+          # TODO: Pin to a specific version after Phase 2 validation
+          Image=docker.io/qdrant/qdrant:latest
+          PublishPort=6333:6333
+          PublishPort=6334:6334
+          Volume=/var/mnt/data/qdrant:/qdrant/storage
+
+          [Install]
+          WantedBy=multi-user.target
+
+    # --- Environment files ---------------------------------------------------
+    # These contain credentials. Edit CHANGEME values before transpiling.
+
+    - path: /etc/colossus/env/postgres.env
+      mode: 0600
+      contents:
+        inline: |
+          POSTGRES_DB=colossus
+          POSTGRES_USER=postgres
+          POSTGRES_PASSWORD=Drwho2010$
+
+    - path: /etc/colossus/env/neo4j.env
+      mode: 0600
+      contents:
+        inline: |
+          NEO4J_AUTH=neo4j/Drwho2010$
+          NEO4J_PLUGINS=["apoc"]
+          NEO4J_server_memory_heap_initial__size=512m
+          NEO4J_server_memory_heap_max__size=2G
+
+  # --- Mount point directories -----------------------------------------------
+  directories:
+    - path: /var/mnt/data/postgres
+      mode: 0755
+    - path: /var/mnt/data/neo4j
+      mode: 0755
+    - path: /var/mnt/data/qdrant
+      mode: 0755
+    - path: /etc/colossus/env
+      mode: 0700
+
+# --- SSH access --------------------------------------------------------------
+passwd:
+  users:
+    - name: core
+      ssh_authorized_keys:
+        - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ1dOykw0BuYrBAagKc3Ra92H9fNm5Nq8mp2N46mUpD6 roman@proxima-centauri"
+
+# --- Enable systemd units ----------------------------------------------------
+systemd:
+  units:
+    # Mount units — explicitly enabled (these are regular systemd units)
+    - name: var-mnt-data-postgres.mount
+      enabled: true
+    - name: var-mnt-data-neo4j.mount
+      enabled: true
+    - name: var-mnt-data-qdrant.mount
+      enabled: true
+    # Quadlet container services are NOT listed here.
+    # The Quadlet generator creates .service units from .container files
+    # and processes their [Install] WantedBy= sections automatically.
+    # Trying to enable them at Ignition time would fail because the
+    # service files don't exist yet.

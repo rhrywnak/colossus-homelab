@@ -1,0 +1,87 @@
+{
+  "ignition": {
+    "version": "3.4.0"
+  },
+  "passwd": {
+    "users": [
+      {
+        "name": "core",
+        "sshAuthorizedKeys": [
+          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ1dOykw0BuYrBAagKc3Ra92H9fNm5Nq8mp2N46mUpD6 roman@proxima-centauri"
+        ]
+      }
+    ]
+  },
+  "storage": {
+    "directories": [
+      {
+        "path": "/var/home/core/data/documents",
+        "mode": 493
+      }
+    ],
+    "files": [
+      {
+        "path": "/etc/NetworkManager/system-connections/ens18.nmconnection",
+        "contents": {
+          "compression": "gzip",
+          "source": "data:;base64,H4sIAAAAAAAC/0yM0arCQAxE3/Mvt7dbqwiyX1L6EJvRLrTZsolK/16oojLzNHM43ZBVMXjK2lOSCLVwJF8XRPiIonBK6igXHvCnPOONUJeWe9vTDB+zxJn1xhOxSIEZLIa62lpXoan/m5au7Hjw+nuQqMVQbTl99/3uZT987JKMzxOEngEAAP//J0XWbq8AAAA="
+        },
+        "mode": 384
+      },
+      {
+        "path": "/var/home/core/colossus/backend.env",
+        "user": {
+          "name": "core"
+        },
+        "contents": {
+          "compression": "",
+          "source": "data:,NEO4J_URI%3Dbolt%3A%2F%2F10.10.100.110%3A7687%0ANEO4J_USER%3Dneo4j%0ANEO4J_PASSWORD%3DDrwho2010%24%0ADOCUMENT_STORAGE_PATH%3D%2Fdata%2Fdocuments%0ARUST_LOG%3Dwarn%0ABACKEND_PORT%3D3403%0ACORS_ALLOWED_ORIGINS%3Dhttp%3A%2F%2F10.10.100.120%3A5473%2Chttp%3A%2F%2Flocalhost%3A5473%0A"
+        },
+        "mode": 384
+      },
+      {
+        "path": "/var/home/core/colossus/frontend.env",
+        "user": {
+          "name": "core"
+        },
+        "contents": {
+          "compression": "",
+          "source": "data:,COLOSSUS_API_URL%3Dhttp%3A%2F%2F10.10.100.120%3A3403%0A"
+        },
+        "mode": 384
+      },
+      {
+        "path": "/etc/containers/systemd/colossus-backend.container",
+        "contents": {
+          "compression": "gzip",
+          "source": "data:;base64,H4sIAAAAAAAC/3SQQWvCQBCF7/srPLYHsxF7EvagtgWhFFFsoSGHcTMmi5tZmZ2Nzb8vtsZDSy8Dj3nz3vAVO3JSqkeMlt1JXCCzDD7EmOL4BWvwowXYI1I1utukKHr+mdp7NT8IsiGUc+DjOJB3hJkA1yjqHUjiPztVLAMJOEIu1aqFGk3dWM5c0NxwfyY4ajvU73+KZ12eTbJc3S5foUVzc/nLk4NXPVHnOFCLJM/Oo9EdsG5Ci9oGxlu2vvozpE6t09672KwDi5k+5NPZZai34FP7J6ACAV0Fmy4NcfZbf6h5krA7VSBoGGsXhXulii1y5yyWaoNRgMWAP0MfB7lFaya5UsWKooD35TdErBa9aZMXN04R+cpwVOEBkpcB6VcAAAD//49E4wzBAQAA"
+        },
+        "mode": 420
+      },
+      {
+        "path": "/etc/containers/systemd/colossus-frontend.container",
+        "contents": {
+          "compression": "gzip",
+          "source": "data:;base64,H4sIAAAAAAAC/2yQQWvCQBCF7/MrPLYHs0pbCsIerK0glCKK9BByGDdjsriZldlJbP59sW1y6mVh4b2PeV9+YK8FvFJy4i/qI9tVDDGlNk3fqcIwWUtkJS4ndztCp4Yrz1/3sDwpiWXSa5TzNHLwTJmiVKQTNxCO6M7EZZZIOu8IPpE1/V8CyFeRFT2TFLBpsCJb1U4yH43U0l8Zz2YEn/6OWnSzbJ7NYKx+YEN2jIXbgjEMb9x5idwQ69oHsqZDMXVsyLgoNNLNUMiIO9i2x+BTvY2i9unx+WFxe2DZajxcSlSyQpVPKj1Avv/dWcCOkqKoxXDFPg3fPTk7nwHkG06KIRQ/Qqh86W3TBvXTNpEMEks6YRt00PMdAAD//3pwCfapAQAA"
+        },
+        "mode": 420
+      },
+      {
+        "path": "/etc/systemd/system/install-python.service",
+        "contents": {
+          "compression": "gzip",
+          "source": "data:;base64,H4sIAAAAAAAC/3SPvU7DUAxG9/sUlwcIGZjvUKADW6SCGKIM+XGJxY19ZX+B5u0RVVuxMFvn+DvtmzC68Ew+GhewSnoRR59zbDbMKvGoFnfiPGQKuyPIkhC+1T4rlcxC9+jtgxDee4H/c3tSmfhX3vSY9yd2eLqrV7d6YKnL+dFDCO2B7ItH6sLrViipkM+KsD/ReEBvSDfEylKpw4giX+ZWFU+0FAUJ4lV5Qxv1P7hvDlpG5Gg0qCKE9lLdnTtoetzSsmZwtTrZNeMnAAD//2ozECItAQAA"
+        },
+        "mode": 420
+      }
+    ]
+  },
+  "systemd": {
+    "units": [
+      {
+        "enabled": true,
+        "name": "install-python.service"
+      }
+    ]
+  }
+}

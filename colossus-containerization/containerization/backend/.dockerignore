@@ -1,0 +1,14 @@
+target/
+.git/
+.gitignore
+*.md
+docs/
+frontend/
+tools/
+prompts/
+scripts/
+tests/
+.env
+.env.*
+docker-compose.yml
+Makefile

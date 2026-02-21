@@ -1,0 +1,134 @@
+{
+  "ignition": {
+    "version": "3.5.0"
+  },
+  "passwd": {
+    "users": [
+      {
+        "name": "core",
+        "sshAuthorizedKeys": [
+          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ1dOykw0BuYrBAagKc3Ra92H9fNm5Nq8mp2N46mUpD6 roman@proxima-centauri"
+        ]
+      }
+    ]
+  },
+  "storage": {
+    "directories": [
+      {
+        "path": "/var/mnt/data/postgres",
+        "mode": 493
+      },
+      {
+        "path": "/var/mnt/data/neo4j",
+        "mode": 493
+      },
+      {
+        "path": "/var/mnt/data/qdrant",
+        "mode": 493
+      },
+      {
+        "path": "/etc/colossus/env",
+        "mode": 448
+      }
+    ],
+    "files": [
+      {
+        "overwrite": true,
+        "path": "/etc/hostname",
+        "contents": {
+          "compression": "",
+          "source": "data:,colossus-prod-db1"
+        },
+        "mode": 420
+      },
+      {
+        "path": "/etc/NetworkManager/system-connections/ens18.nmconnection",
+        "contents": {
+          "compression": "gzip",
+          "source": "data:;base64,H4sIAAAAAAAC/0zKwaqDMBBG4f08y9VriotCmScRF0Pyi4FkIplpwbcvLV0IZ3X4lthUET03XSknhlq4k58HGL6jK5yyOvomEYNKxY8s+XjNK0lKHWaBwzR+m8YQpv/b/HcZlNSu4PEZg0F63JmqnMMmufAmxUAVvrfEVfQphd4BAAD//wfHDaagAAAA"
+        },
+        "mode": 384
+      },
+      {
+        "path": "/etc/systemd/system/var-mnt-data-postgres.mount",
+        "contents": {
+          "compression": "gzip",
+          "source": "data:;base64,H4sIAAAAAAAC/zyOMU7DQBBF+znFKhUUxtSWtkE0FAgKkAvLsib2OFm03rVmfiJMxSE4ISdBjojbeW/+/817CmjpUazXMCPk5M9BEfJobsqnBPf7/eNes+GgYm5gsLuZNQ/F12jl/H+/JWqeV7ul+sjwF2HYF1dO9VFUfHlmLaeEco3ZnultmWVrpZfLCvN9TpBP+J0tBpm6U5X3H9Kj02pFHJJoN4YoHSq73xE1T8nAMbZUc4IMD4uPuedYjHYH1oOA/gIAAP//C4IQqO4AAAA="
+        },
+        "mode": 420
+      },
+      {
+        "path": "/etc/systemd/system/var-mnt-data-neo4j.mount",
+        "contents": {
+          "compression": "gzip",
+          "source": "data:;base64,H4sIAAAAAAAC/zyNsU6EQBRF+/cVk620QCysSKYxNhZqo6EghLyFhzub4Q2Zd5eIlR/hF/olBkxs77n3nuZNA1p6EOtzmBGS+iVkhDSam9JF4X6+vt2zpLuzGxjsruachuJztFK38Jqoedp6LdUnht/pcCx2SPVJsvhy4VxOinI7+JvR6zrLv4ledrP5PinkA/5gq0Gm7lKl41l6dLnaEAeV3I0hSofKbg9EzaMaOMaWalbIcL/6mHqOxWg34PwuoN8AAAD//746ODHiAAAA"
+        },
+        "mode": 420
+      },
+      {
+        "path": "/etc/systemd/system/var-mnt-data-qdrant.mount",
+        "contents": {
+          "compression": "gzip",
+          "source": "data:;base64,H4sIAAAAAAAC/zyNsUrFQBBF+/mK5VVaxFgHthEbCxFBSRFCmJed9a1sZuPMvGCs/Ai/0C+RRLG95957umdO1sMt6ShptlTYL0kslahuKmc29/355R6DIJsLaOguZimh+ohav+3pJUB3vzV7aE9ofsfhWP1SaE8k5OsFpZ7Y6u3ibwhP60z/NnjY7erHwkbv5g+6qtE0nJtyfKXRBmk2hIlJhpgyDdbo9QGgu2M1zLmHFtko3Kw+lxFzFfXKUF7I4CcAAP//58TV1+YAAAA="
+        },
+        "mode": 420
+      },
+      {
+        "path": "/etc/containers/systemd/colossus-postgres.container",
+        "contents": {
+          "compression": "gzip",
+          "source": "data:;base64,H4sIAAAAAAAC/3yOT0vzQBDG7/MpenzfQ7LUPxQKe9BWoSAaK+oh5LBNxri4O9POzgb67SVq483LMAy/3zxP/UxeG1hjasXv1TPZFQdOKadZxUl7wafHu9l8MftXbR/W/2GLh+wFkx2cFJG06Jy6Yv+NpjJyJoWrN0X5k4B6xaTOE0oD03rvItr2J39SYBNdj7bj9gOl9GyC34mTozkBy/kCqrwLPr1XLGovL87PluOAFw45ojWR1Iw1fhUzOBkfTZdD+CLghgYvTBFJb31Aa1Bbc+pkkIbJKJEGgHpDSV0IDbw6UuyujzbmoL7ICaVUJz0qfAYAAP//ZQBVmWcBAAA="
+        },
+        "mode": 420
+      },
+      {
+        "path": "/etc/containers/systemd/colossus-neo4j.container",
+        "contents": {
+          "compression": "gzip",
+          "source": "data:;base64,H4sIAAAAAAAC/3SOsU7zQBCE+32KlP9f2Nc4GFm6AhKQ0gQrElBYLi72Eg7udmFvz1LeHjkJSBQ0o9HOp53pHslrD2tMg/gP9Ux2xYFTymmxRa7eFsvFv3b3sP4PO/zMXjDZyUkRSYvRqStohsrImRRuXhTl7xi6FZM6Tyg9/Niti2iHS+eZh010B7QjD+8opWcT/F6cHM0pbZbQ5n3w6bVlUVtXddXM8vt6dV03s8AThxzRmkhq5kmXJycPdzR5YYpIeu8DWoM6mO8xBmk60yXSBNBtKKkLoYdnR4rj7dHGHNQXOaGU6uSACl8BAAD//0lrjy1RAQAA"
+        },
+        "mode": 420
+      },
+      {
+        "path": "/etc/containers/systemd/colossus-qdrant.container",
+        "contents": {
+          "compression": "gzip",
+          "source": "data:;base64,H4sIAAAAAAAC/3yOsU7DQAxAd39FRxjSDKkYKt0A7dIFQiVgiDKYxIQTdza1fUj8PQqkDAwstvVsP7t74Og97MkGje8ehcNOkpgVW92Piuyri/Z4t7+EI51KVLLwgVpl9mpEx+r0PbPOUtjh+sVJ/+lDtxN2jEzaw295i5nCsBxdFuCQcaIwyvBGuo5S/+AlbRM6mUNbnlO011bUw1XTNNs5/KWbmW7gUVLJFOrMXs+fnVVns7koTgTQHdgcU+rhCdlpvPkMuSSPVTHStaNO5PAVAAD//3Rt3SE3AQAA"
+        },
+        "mode": 420
+      },
+      {
+        "path": "/etc/colossus/env/postgres.env",
+        "contents": {
+          "compression": "",
+          "source": "data:,POSTGRES_DB%3Dcolossus%0APOSTGRES_USER%3Dpostgres%0APOSTGRES_PASSWORD%3DDrwho2010%24%0A"
+        },
+        "mode": 384
+      },
+      {
+        "path": "/etc/colossus/env/neo4j.env",
+        "contents": {
+          "compression": "",
+          "source": "data:,NEO4J_AUTH%3Dneo4j%2FDrwho2010%24%0ANEO4J_PLUGINS%3D%5B%22apoc%22%5D%0ANEO4J_server_memory_heap_initial__size%3D512m%0ANEO4J_server_memory_heap_max__size%3D2G%0A"
+        },
+        "mode": 384
+      }
+    ]
+  },
+  "systemd": {
+    "units": [
+      {
+        "enabled": true,
+        "name": "var-mnt-data-postgres.mount"
+      },
+      {
+        "enabled": true,
+        "name": "var-mnt-data-neo4j.mount"
+      },
+      {
+        "enabled": true,
+        "name": "var-mnt-data-qdrant.mount"
+      }
+    ]
+  }
+}

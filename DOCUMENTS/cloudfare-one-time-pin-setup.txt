@@ -1,0 +1,68 @@
+Instructions for setup
+Cloudflare Access can send a one-time PIN (OTP) to approved email addresses as an alternative to integrating an identity provider. You can simultaneously configure OTP login and the identity provider of your choice to allow users to select their own authentication method.
+
+For example, if your team uses Okta but you are collaborating with someone outside your organization, you can use OTP to grant access to guests.
+
+Note
+
+Access and WARP will evaluate identity based on a user's last-known state. If a user authenticates via your Identity Provider, but later authenticates with a different method (such as One-Time PIN), Access will no longer evaluate the user's Identity Provider group memberships. Identity Provider group memberships are created and managed by the IdP and group membership data can only persist in an IdP-based authentication.
+
+Set up OTP
+Dashboard
+
+In Cloudflare One, go to Integrations > Identity providers.
+Under Your identity providers, select Add new identity provider.
+Select One-time PIN.
+API
+
+Make a POST request to the Identity Providers endpoint:
+
+Required API token permissions
+
+At least one of the following token permissions is required:
+
+Access: Organizations, Identity Providers, and Groups Write
+curl "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/access/identity_providers" \
+  --request POST \
+  --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+  --json '{
+    "name": "One-time PIN login",
+    "type": "onetimepin",
+    "config": {}
+  }'
+Terraform (v5)
+
+Add the following permission to your cloudflare_api_token:
+
+Access: Organizations, Identity Providers, and Groups Write
+Configure the cloudflare_zero_trust_access_identity_provider resource:
+
+resource "cloudflare_zero_trust_access_identity_provider" "onetimepin_login" {
+  account_id = var.cloudflare_account_id
+  name       = "One-time PIN login"
+  type       = "onetimepin"
+  config      = {}
+}
+Tip
+
+If your organization uses a third-party email scanning service (for example, Mimecast or Barracuda), add noreply@notify.cloudflare.com to the email scanning allowlist.
+
+To grant a user access to an application, simply add their email address to an Access policy.
+
+Log in with OTP
+To log in to Access using the one-time PIN:
+
+Go to the application protected by Access.
+On the Access login page, enter your email address and select Send me a code.Enter email to sign in with OTP.
+If the email is allowed by an Access policy, you will receive a PIN in your inbox. This secure PIN expires 10 minutes after the initial request.
+Note
+
+By design, blocked users will not receive an email. The login page will always say A code has been emailed to you, regardless of whether or not an email was sent.
+
+Paste the PIN into the Access login page and select Sign in.Enter PIN to sign in.
+
+If the code was valid, you will be redirected to the application.
+If the code was invalid, you will see That account does not have access.
+Note
+
+Access only logs an authentication attempt after the user enters a code. If the user enters their email but never submits a code, the event will not appear in your audit logs.
