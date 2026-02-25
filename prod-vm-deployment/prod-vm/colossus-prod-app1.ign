@@ -7,18 +7,13 @@
       {
         "name": "core",
         "sshAuthorizedKeys": [
-          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ1dOykw0BuYrBAagKc3Ra92H9fNm5Nq8mp2N46mUpD6 roman@proxima-centauri"
+          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ1dOykw0BuYrBAagKc3Ra92H9fNm5Nq8mp2N46mUpD6 roman@proxima-centauri",
+          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIO2hRW0JQ4RXDYeIScG0WbfxWaxHDGpo/A40aHw+kj+C semaphore-infra@colossus"
         ]
       }
     ]
   },
   "storage": {
-    "directories": [
-      {
-        "path": "/var/home/core/data/documents",
-        "mode": 493
-      }
-    ],
     "files": [
       {
         "path": "/etc/NetworkManager/system-connections/ens18.nmconnection",
@@ -29,13 +24,21 @@
         "mode": 384
       },
       {
+        "path": "/etc/systemd/system/var-mnt-data-legal\\x2ddocs.mount",
+        "contents": {
+          "compression": "gzip",
+          "source": "data:;base64,H4sIAAAAAAAC/2zOMUvFMBDA8f0+RXiTDn11fpDBhwgO4qBSsJQSk+trJMmVu0ux316sCA7O/+H/619L1AHuUDzHRSMV+0i1qEl4cckE8jVjUTFXa2SNNImZmLKZSdS83T9fw+2kyFY2UcyhyRRqQmkSuXAU5DV6hDNOxGhzTRqbKshHdXxBBej32QDd7NQuTKHZv00gL9DNyGjb1XGbi7bBqWv/5JdtQfurgqcdL9ZTUfxUe/gRjfVE7x/odeTTd3KxII9TTDjqSW4OAP1DEXUpDdC5ohjO2z/QrwAAAP//FJxUWycBAAA="
+        },
+        "mode": 420
+      },
+      {
         "path": "/var/home/core/colossus/backend.env",
         "user": {
           "name": "core"
         },
         "contents": {
-          "compression": "",
-          "source": "data:,NEO4J_URI%3Dbolt%3A%2F%2F10.10.100.110%3A7687%0ANEO4J_USER%3Dneo4j%0ANEO4J_PASSWORD%3DDrwho2010%24%0ADOCUMENT_STORAGE_PATH%3D%2Fdata%2Fdocuments%0ARUST_LOG%3Dwarn%0ABACKEND_PORT%3D3403%0ACORS_ALLOWED_ORIGINS%3Dhttp%3A%2F%2F10.10.100.120%3A5473%2Chttp%3A%2F%2Flocalhost%3A5473%0A"
+          "compression": "gzip",
+          "source": "data:;base64,H4sIAAAAAAAC/2TOQWvDIBwF8LufZYspZu0IeLCJpG5Wu79mOYpLQ7th4piWff1ByW3wTo8Hv6e4rl5cD4J+xJBrjDdlcU9ZbDZlvds+79C6MRzoMsXqay1OzJhBQ0ubA1MdP3LHlBF7yd0gpHT6ncMAwnL01gJT1vUg6TXn73/IlhCCWt30R66sM1YD67g7MXug+Oyzx+c43uZpyQlBb6yTuqO//mdBe9a8ctW6kwZLSVUS1GgwjkmpB946DaITytzRVGM8xhBTuqXHMF18KMZ4mf1nMcb5Yb0V4ujDNaZcP1U7gv4CAAD//5ISeGscAQAA"
         },
         "mode": 384
       },
@@ -46,7 +49,7 @@
         },
         "contents": {
           "compression": "",
-          "source": "data:,COLOSSUS_API_URL%3Dhttp%3A%2F%2F10.10.100.120%3A3403%0A"
+          "source": "data:,COLOSSUS_API_URL%3Dhttps%3A%2F%2Fcolossus-legal-api.cogmai.com%0A"
         },
         "mode": 384
       },
@@ -54,7 +57,7 @@
         "path": "/etc/containers/systemd/colossus-backend.container",
         "contents": {
           "compression": "gzip",
-          "source": "data:;base64,H4sIAAAAAAAC/3SQQWvCQBCF7/srPLYHsxF7EvagtgWhFFFsoSGHcTMmi5tZmZ2Nzb8vtsZDSy8Dj3nz3vAVO3JSqkeMlt1JXCCzDD7EmOL4BWvwowXYI1I1utukKHr+mdp7NT8IsiGUc+DjOJB3hJkA1yjqHUjiPztVLAMJOEIu1aqFGk3dWM5c0NxwfyY4ajvU73+KZ12eTbJc3S5foUVzc/nLk4NXPVHnOFCLJM/Oo9EdsG5Ci9oGxlu2vvozpE6t09672KwDi5k+5NPZZai34FP7J6ACAV0Fmy4NcfZbf6h5krA7VSBoGGsXhXulii1y5yyWaoNRgMWAP0MfB7lFaya5UsWKooD35TdErBa9aZMXN04R+cpwVOEBkpcB6VcAAAD//49E4wzBAQAA"
+          "source": "data:;base64,H4sIAAAAAAAC/4SRMe/TMBDFd3+KjjAkDv8/UyQPbQGpEkJVK2AIGa7ONbFqn+F8Ttpvj9KSDgiJxZJP773T713zlZy06gMmy+6nuEhmG31MKafiM/bgVxuwF6Ru9eaQk+j1NYe3an0WZEMoU+RLEck7wlKAe5TVCFwEkqIDgcLPET+uL10XbSpDzCTqO5Ckf5vVAX9lx5jMf1NUs40k4Ai5VbsAPZp+sFy6qHng20Rw0XYhOT0Y6rEqX8pKPZ1fIKD5W6U+0ug4UkCST86j0SOwHmJAbSPjM1X/0ZdIo9rnk3dp2EcW8/q+eq3nR32LPgc0OpDomUTfSYoZo34MumjzvCjVPCnVHJFHZ7FVB0wCLAb8BLe0fI9ozbtKqWZHScD79l4mdpubCdmLK3JCXg7R4Rmyl6Xa3wEAAP//KMwdd+oBAAA="
         },
         "mode": 420
       },
@@ -62,7 +65,7 @@
         "path": "/etc/containers/systemd/colossus-frontend.container",
         "contents": {
           "compression": "gzip",
-          "source": "data:;base64,H4sIAAAAAAAC/2yQQWvCQBCF7/MrPLYHs0pbCsIerK0glCKK9BByGDdjsriZldlJbP59sW1y6mVh4b2PeV9+YK8FvFJy4i/qI9tVDDGlNk3fqcIwWUtkJS4ndztCp4Yrz1/3sDwpiWXSa5TzNHLwTJmiVKQTNxCO6M7EZZZIOu8IPpE1/V8CyFeRFT2TFLBpsCJb1U4yH43U0l8Zz2YEn/6OWnSzbJ7NYKx+YEN2jIXbgjEMb9x5idwQ69oHsqZDMXVsyLgoNNLNUMiIO9i2x+BTvY2i9unx+WFxe2DZajxcSlSyQpVPKj1Avv/dWcCOkqKoxXDFPg3fPTk7nwHkG06KIRQ/Qqh86W3TBvXTNpEMEks6YRt00PMdAAD//3pwCfapAQAA"
+          "source": "data:;base64,H4sIAAAAAAAC/2yQy2rrQAyG93qKLM9ZxJPeKARm0aYNBEoJCaUL44UyVuwhY6loZKd5+9KLs2k3AoG+D/1/+cLRKnigHDS+WRT2C0mSc5+nT9RgmixV2Ijryb8NYTDHTeT3/3C3N1LPZEfRw1Q4RabCUBuySRgNOwwH4rrIpEMMBK/Ilv+GAMqFsGFk0gpWHTbkmzZoEcVpq6cj48Gdxfufp+bDrLgsZnBGn7Ej/+sMHnmIKtwR2zIm8m5Ada105IIonb1uBAriAdb9LsXcrkXN31zfXs0/B0C5/U5TwYayoZrHdMRTHtctBX8xAyhXnA1Tqr5iU31/8l2fLE77TDpWVdMe+2RjCR8BAAD//yxOxNyPAQAA"
         },
         "mode": 420
       },
@@ -78,6 +81,10 @@
   },
   "systemd": {
     "units": [
+      {
+        "enabled": true,
+        "name": "var-mnt-data-legal\\x2ddocs.mount"
+      },
       {
         "enabled": true,
         "name": "install-python.service"
