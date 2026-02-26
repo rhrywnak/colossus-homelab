@@ -105,10 +105,22 @@ api:
 entryPoints:
   http:
     address: ":80"
+    forwardedHeaders:
+      trustedIPs:
+        - "10.10.100.0/24"
+        - "10.10.0.0/24"
   https:
     address: ":443"
     http:
       tls: {}
+  metrics:
+    address: ":8082"
+metrics:
+  prometheus:
+    entryPoint: metrics
+    addEntryPointsLabels: true
+    addRoutersLabels: true
+    addServicesLabels: true
 
 providers:
   file:
