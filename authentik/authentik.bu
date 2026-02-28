@@ -1,0 +1,234 @@
+variant: fcos
+version: "1.5.0"
+
+# =============================================================================
+# authentik.bu — Butane config for VM-316 (Authentik) on pve-3
+# =============================================================================
+#
+# Before transpiling, replace these placeholders:
+#   CHANGEME_POSTGRES_PASSWORD    — random password (appears in 2 files)
+#   CHANGEME_AUTHENTIK_SECRET_KEY — 64-char random string
+#   SSH_KEY_OPERATOR              — ssh-ed25519 key from proxima-centauri
+#   SSH_KEY_SEMAPHORE             — ssh-ed25519 key from semaphore-infra
+#
+# Generate secrets:
+#   openssl rand -hex 32                          # for AUTHENTIK_SECRET_KEY
+#   openssl rand -base64 24 | tr -d '/+='        # for POSTGRES_PASSWORD
+#
+# Transpile:
+#   podman run --rm -i quay.io/coreos/butane:release --pretty --strict \
+#     < authentik.bu > authentik.ign
+#
+# Deploy:
+#   scp authentik.ign root@pve-3:/var/coreos/snippets/
+# =============================================================================
+
+passwd:
+  users:
+    - name: core
+      ssh_authorized_keys:
+        - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ1dOykw0BuYrBAagKc3Ra92H9fNm5Nq8mp2N46mUpD6 roman@proxima-centauri"
+        - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIO2hRW0JQ4RXDYeIScG0WbfxWaxHDGpo/A40aHw+kj+C semaphore-infra@colossus"
+
+storage:
+  directories:
+    # virtiofs mount targets (canonical paths — CoreOS /mnt → /var/mnt)
+    - path: /var/mnt/data/postgres
+      mode: 0755
+    - path: /var/mnt/data/authentik
+      mode: 0755
+    # Env file directory
+    - path: /etc/authentik/env
+      mode: 0750
+    # Quadlet directory (should exist, but be explicit)
+    - path: /etc/containers/systemd
+      mode: 0755
+
+  files:
+    # ── Hostname ─────────────────────────────────────────────────────────
+    - path: /etc/hostname
+      mode: 0644
+      overwrite: true
+      contents:
+        inline: authentik
+
+    # ── Static IP via NetworkManager ─────────────────────────────────────
+    - path: /etc/NetworkManager/system-connections/static.nmconnection
+      mode: 0600
+      contents:
+        inline: |
+          [connection]
+          id=static
+          type=ethernet
+          interface-name=ens18
+          autoconnect=true
+
+          [ipv4]
+          method=manual
+          addresses=10.10.100.58/24
+          gateway=10.10.100.1
+          dns=10.10.100.53
+
+          [ipv6]
+          method=disabled
+
+    # ── virtiofs mount: PostgreSQL data ──────────────────────────────────
+    # What= must match the Proxmox directory mapping ID
+    # Where= must use canonical path (/var/mnt, not /mnt)
+    # SELinux context is MANDATORY for container access on CoreOS
+    - path: /etc/systemd/system/var-mnt-data-postgres.mount
+      mode: 0644
+      contents:
+        inline: |
+          [Unit]
+          Description=Mount Authentik PostgreSQL data (virtiofs from host ZFS)
+          After=systemd-modules-load.service
+          Before=multi-user.target
+
+          [Mount]
+          What=authentik-postgres
+          Where=/var/mnt/data/postgres
+          Type=virtiofs
+          Options=context="system_u:object_r:container_file_t:s0"
+
+          [Install]
+          WantedBy=multi-user.target
+
+    # ── virtiofs mount: Authentik data (/data in container) ──────────────
+    - path: /etc/systemd/system/var-mnt-data-authentik.mount
+      mode: 0644
+      contents:
+        inline: |
+          [Unit]
+          Description=Mount Authentik data (virtiofs from host ZFS)
+          After=systemd-modules-load.service
+          Before=multi-user.target
+
+          [Mount]
+          What=authentik-data
+          Where=/var/mnt/data/authentik
+          Type=virtiofs
+          Options=context="system_u:object_r:container_file_t:s0"
+
+          [Install]
+          WantedBy=multi-user.target
+
+    # ── PostgreSQL environment file ──────────────────────────────────────
+    - path: /etc/authentik/env/postgresql.env
+      mode: 0600
+      contents:
+        inline: |
+          POSTGRES_DB=authentik
+          POSTGRES_USER=authentik
+          POSTGRES_PASSWORD=R0U5kZwHs0mdTvsok4ix3LtHPBWK3R
+
+    # ── Authentik environment file (shared by server + worker) ───────────
+    - path: /etc/authentik/env/authentik.env
+      mode: 0600
+      contents:
+        inline: |
+          AUTHENTIK_SECRET_KEY=7590ad3c1e38c2126c9b151044b8dacf73e58d6d47455679ae43d5a7ebbbc303
+          AUTHENTIK_POSTGRESQL__HOST=authentik-postgresql
+          AUTHENTIK_POSTGRESQL__USER=authentik
+          AUTHENTIK_POSTGRESQL__NAME=authentik
+          AUTHENTIK_POSTGRESQL__PASSWORD=R0U5kZwHs0mdTvsok4ix3LtHPBWK3R
+          AUTHENTIK_ERROR_REPORTING__ENABLED=false
+          AUTHENTIK_DISABLE_UPDATE_CHECK=true
+          AUTHENTIK_DISABLE_STARTUP_ANALYTICS=true
+          AUTHENTIK_AVATARS=none
+          AUTHENTIK_HOST=http://localhost:9000
+
+    # ── Podman network (inter-container communication) ───────────────────
+    - path: /etc/containers/systemd/authentik.network
+      mode: 0644
+      contents:
+        inline: |
+          [Network]
+          NetworkName=authentik
+
+    # ── Quadlet: PostgreSQL ──────────────────────────────────────────────
+    - path: /etc/containers/systemd/authentik-postgresql.container
+      mode: 0644
+      contents:
+        inline: |
+          [Unit]
+          Description=Authentik PostgreSQL 16
+          After=var-mnt-data-postgres.mount
+          Requires=var-mnt-data-postgres.mount
+
+          [Container]
+          Image=docker.io/library/postgres:16-alpine
+          ContainerName=authentik-postgresql
+          Network=authentik.network
+          EnvironmentFile=/etc/authentik/env/postgresql.env
+          Volume=/mnt/data/postgres:/var/lib/postgresql/data:rw
+
+          [Service]
+          Restart=always
+          TimeoutStartSec=300
+
+          [Install]
+          WantedBy=multi-user.target default.target
+
+    # ── Quadlet: Authentik Server ────────────────────────────────────────
+    - path: /etc/containers/systemd/authentik-server.container
+      mode: 0644
+      contents:
+        inline: |
+          [Unit]
+          Description=Authentik Server (Web UI + API + Embedded Outpost)
+          After=var-mnt-data-authentik.mount authentik-postgresql.service
+          Requires=var-mnt-data-authentik.mount
+          Wants=authentik-postgresql.service
+
+          [Container]
+          Image=ghcr.io/goauthentik/server:2025.12
+          ContainerName=authentik-server
+          Exec=server
+          Network=authentik.network
+          PublishPort=9000:9000
+          PublishPort=9443:9443
+          EnvironmentFile=/etc/authentik/env/authentik.env
+          Volume=/mnt/data/authentik:/data:rw
+
+          [Service]
+          Restart=always
+          TimeoutStartSec=300
+
+          [Install]
+          WantedBy=multi-user.target default.target
+
+    # ── Quadlet: Authentik Worker ────────────────────────────────────────
+    - path: /etc/containers/systemd/authentik-worker.container
+      mode: 0644
+      contents:
+        inline: |
+          [Unit]
+          Description=Authentik Worker (Background Tasks)
+          After=var-mnt-data-authentik.mount authentik-postgresql.service
+          Requires=var-mnt-data-authentik.mount
+          Wants=authentik-postgresql.service
+
+          [Container]
+          Image=ghcr.io/goauthentik/server:2025.12
+          ContainerName=authentik-worker
+          Exec=worker
+          Network=authentik.network
+          EnvironmentFile=/etc/authentik/env/authentik.env
+          Volume=/mnt/data/authentik:/data:rw
+
+          [Service]
+          Restart=always
+          TimeoutStartSec=300
+
+          [Install]
+          WantedBy=multi-user.target default.target
+
+systemd:
+  units:
+    # Enable virtiofs mount units (must be listed here)
+    # Do NOT enable Quadlet .container units here — they self-enable via [Install]
+    - name: var-mnt-data-postgres.mount
+      enabled: true
+    - name: var-mnt-data-authentik.mount
+      enabled: true

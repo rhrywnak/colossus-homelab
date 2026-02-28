@@ -1,0 +1,131 @@
+{
+  "ignition": {
+    "version": "3.4.0"
+  },
+  "passwd": {
+    "users": [
+      {
+        "name": "core",
+        "sshAuthorizedKeys": [
+          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ1dOykw0BuYrBAagKc3Ra92H9fNm5Nq8mp2N46mUpD6 roman@proxima-centauri",
+          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIO2hRW0JQ4RXDYeIScG0WbfxWaxHDGpo/A40aHw+kj+C semaphore-infra@colossus"
+        ]
+      }
+    ]
+  },
+  "storage": {
+    "directories": [
+      {
+        "path": "/var/mnt/data/postgres",
+        "mode": 493
+      },
+      {
+        "path": "/var/mnt/data/authentik",
+        "mode": 493
+      },
+      {
+        "path": "/etc/authentik/env",
+        "mode": 488
+      },
+      {
+        "path": "/etc/containers/systemd",
+        "mode": 493
+      }
+    ],
+    "files": [
+      {
+        "overwrite": true,
+        "path": "/etc/hostname",
+        "contents": {
+          "compression": "",
+          "source": "data:,authentik"
+        },
+        "mode": 420
+      },
+      {
+        "path": "/etc/NetworkManager/system-connections/static.nmconnection",
+        "contents": {
+          "compression": "gzip",
+          "source": "data:;base64,H4sIAAAAAAAC/1TMwQ6CQAwE0Hv/RQRFw2W/hHCo21E2gS7ZFg1/b6LGaDKnyczrY1ZF9JR1oCTBnD1F8m1BgI8oCqekjnLliJ3yjAC1piNePX/OwcsKoj4t93agGT5mCTPryhOxSIEZLDR19Updnbr9oaUbOx68/fQNif7tjm/0/EUlGV8mCD0DAAD//7RDIQ64AAAA"
+        },
+        "mode": 384
+      },
+      {
+        "path": "/etc/systemd/system/var-mnt-data-postgres.mount",
+        "contents": {
+          "compression": "gzip",
+          "source": "data:;base64,H4sIAAAAAAAC/2zPwUrzQBTF8f08xdDV9y3SuC7MokUEQVGpUjCEMCY3zehkbrj3TDBvL22pK9dn8f+d6i0F1OaWtJUwIXByj5wT7DZjoITwZZ9ZcRTavzzYzsPbf3MQBO7V9sKjHVhh3+/2/822B4nTRUFjV4zc5UhaRPbdWknm0JLZUc9CbswRochKsoaXI8GY6pytzWHwcP4aL6ZLXM1hICFXzl7KMaE8Scrf8XWZyF1Z5un8Q13LCfQNt7qQmrzhj09q0cjmNPmQSJo+RGqw0ZuVMdV9UvgYa3PwCdTtlj+kPwEAAP//PIcbJDIBAAA="
+        },
+        "mode": 420
+      },
+      {
+        "path": "/etc/systemd/system/var-mnt-data-authentik.mount",
+        "contents": {
+          "compression": "gzip",
+          "source": "data:;base64,H4sIAAAAAAAC/2zOsUrEQBDG8X6eYrlKi1ysA1vcIYKFWKgEDCGsycSsbnaPmW+DeXvJyVldO/PB/9e8RY+W7ll78Sf4FO1TyhHmkDFxhP82g4MzN4sX+DSqGSXNZkoK8/7wckuHESxWVwXPQzGnIQfWIiQ37JVl8T3TkcckbOcc4IusLHs4+WQQNedWS/XkYN2lWGxFqicWtuXipJwjyu1W/k/odT2xvZjo+SxX26cI/oHd/Xm6XKWPL+7RSbW9nI8s3egDd6j0bkfUPEaFC6Gl2kXwcFyvMH8DAAD//+919H4kAQAA"
+        },
+        "mode": 420
+      },
+      {
+        "path": "/etc/authentik/env/postgresql.env",
+        "contents": {
+          "compression": "",
+          "source": "data:,POSTGRES_DB%3Dauthentik%0APOSTGRES_USER%3Dauthentik%0APOSTGRES_PASSWORD%3DR0U5kZwHs0mdTvsok4ix3LtHPBWK3R%0A"
+        },
+        "mode": 384
+      },
+      {
+        "path": "/etc/authentik/env/authentik.env",
+        "contents": {
+          "compression": "gzip",
+          "source": "data:;base64,H4sIAAAAAAAC/4TQwW6yQBQF4L3v8sfBYURMWIxwIwR+oHeGGruZDDBWIxUrY9vHb9qNpKnp9t7vnMXhlYwhl0mqBIQIUqWwDTzmE93SxjF00cyc2bzxa4c5xHXrRaubnUcNW7Tz1vVcxuaer41LW6Y9U9d1Qwmd3FrLQsg1gnjIlIoLIQN9tXtzsofjv3M/2OeLGV67O74SgDd/B+X8P/yJSi7EpsAoQFKx49N7PJCXVr4N/dE9fNDMxuVqk1IcpQGxQIVQFiiTfK0U5HyVQRTsdDeYEYwS8fVQVRlxCSqMIUwDe7n+ZoTkKKtS8ZxnW5mE4ifkj1xyFMGpP43P38PtrT0vp9Oub3S37we79Akhk88AAAD//4WiRsbAAQAA"
+        },
+        "mode": 384
+      },
+      {
+        "path": "/etc/containers/systemd/authentik.network",
+        "contents": {
+          "compression": "",
+          "source": "data:,%5BNetwork%5D%0ANetworkName%3Dauthentik%0A"
+        },
+        "mode": 420
+      },
+      {
+        "path": "/etc/containers/systemd/authentik-postgresql.container",
+        "contents": {
+          "compression": "gzip",
+          "source": "data:;base64,H4sIAAAAAAAC/3yPy27CMBBF9/MV/EBiUCUWSF7Ql4RUoZb0sYiymCYDtbDHMB4H8fcVpZCuuvT1uVdn6jd22sA9pVbcTl1kO8/6RaxuO3qOSTdC1cvTaDKF+VpJbI9SBNaiQ8VidwZSGWJmhRXtsxNK/0JQ30VWdEzSwCLghmwX2y1J6aLx7lNQjubSmU2mBfqdY4Jra4mBLF4kr/N7D0vSQ5Tt8FnyOYEH7p1EDsT66DxZQ9qaK2aIezPslMQ9vEefA1kTWM3pjEHJ9Cgn0T+NH2ImB4C6IuldSw2sKCmKWvQHPCZ4dYFi1uqUVdTam/EYoF5wUvS+gQ9kpe72aEP26oqcSEpF2ZCOOlpj9vr7hO8AAAD//y8GtHWyAQAA"
+        },
+        "mode": 420
+      },
+      {
+        "path": "/etc/containers/systemd/authentik-server.container",
+        "contents": {
+          "compression": "gzip",
+          "source": "data:;base64,H4sIAAAAAAAC/3xQTY/TMBC9z6/wEYTyQXc5EMmHAkXqZak2LHuIcnCT2dRae7wdj1P671Ha0sCllye/53nPntc8kZUWvmHs2L6JDaSXSXZIYl9VjTwiq3fPuFVPa/VBLTcTrvwW+x579SPJW4jyHpYvgqxHw5knyXojJjN/U3IfEom68myyDIxx7/KIPNoO4RH3yTLGmxHwbEiivhkEzddAYiwht7D2ZkA97DrObSiGcHUW8bRYtSgXn/KPC7h6HozHfx44j8HqN3b6cn5AOQR+nYdyOiuwSVtn424TWPTnsiyrCf5X7+/vqglgRaPlQB5JvluHukDpivl7SOPMcqQRfgWXPOrCkxRTN/N1deIVHwCa+txCC48YxbBo4w7mGOGn9RiS1JNWY6fvyhKgWVMU41x76hX7L0ftkxObpYici+EBRfX4YpKTC4U/AQAA//+e89g1LgIAAA=="
+        },
+        "mode": 420
+      },
+      {
+        "path": "/etc/containers/systemd/authentik-worker.container",
+        "contents": {
+          "compression": "gzip",
+          "source": "data:;base64,H4sIAAAAAAAC/3yQMe/aMBDF9/sUGdshCaXqguThT0slFgagZYgynJIjWLHPcD6H8u2rACWd2O53vveenqtfbLWGHxQbsWe1gc1H0hOx2j47BOlJsk9LbPpOQuI222Ps42f4OCqJGVByz5q3qJjjP1nhQ2LNXpyfQ9ROKF5cEUkG2xBs6ZKsUHxrAQdkjeatEVTfAytaJqlh7bEj050aKWwou/BSluM5yWI+m38rvszhpdmgp/8CrvfCsPpDjXnOG9Jxmo4KfmxgxYOVwJ5Yf1pHpiRtyimSeJioIB7gd3DJkyk9azn2nZ4Xd17IFaDaPZrVsKWoKGrQXfEWYW89haS7cbejxnydzQCqNUdF5+r7X1G7vBmfnNo8RZJCUTrSrKUjJqdPhL8BAAD//8cUkMHzAQAA"
+        },
+        "mode": 420
+      }
+    ]
+  },
+  "systemd": {
+    "units": [
+      {
+        "enabled": true,
+        "name": "var-mnt-data-postgres.mount"
+      },
+      {
+        "enabled": true,
+        "name": "var-mnt-data-authentik.mount"
+      }
+    ]
+  }
+}
