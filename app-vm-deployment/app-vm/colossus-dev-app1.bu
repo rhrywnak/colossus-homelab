@@ -13,8 +13,10 @@ version: "1.5.0"
 #
 # STORAGE: Legal document PDFs are stored on the Proxmox host in a ZFS dataset
 # (dev-zfs/legal-docs) and mounted into the VM via virtiofs. The backend
-# container mounts this at /data/documents. This follows the Colossus golden
-# rule: no persistent data inside container layers or VM root filesystems.
+# container mounts this at /data/documents. ONNX model cache is stored on
+# a second ZFS dataset (dev-zfs/models) mounted at /data/models. This follows
+# the Colossus golden rule: no persistent data inside container layers or
+# VM root filesystems.
 #
 # SELINUX: CoreOS runs SELinux in enforcing mode. virtiofs mounts from
 # a non-SELinux host (Proxmox/Debian) appear as virtiofs_t, which
@@ -83,9 +85,31 @@ storage:
           [Install]
           WantedBy=multi-user.target
 
+    # ── virtiofs mount unit — ONNX model cache storage ───────────────────────
+    # Mounts ZFS dataset (dev-zfs/models) for fastembed/ONNX model persistence.
+    # Model downloads automatically on first embed run — no files to copy.
+    # Same pattern as legal-docs: ZFS → directory mapping → virtiofs → container.
+    - path: /etc/systemd/system/var-mnt-data-models.mount
+      mode: 0644
+      contents:
+        inline: |
+          [Unit]
+          Description=Mount models virtiofs share
+          After=systemd-modules-load.service
+          Before=multi-user.target
+
+          [Mount]
+          What=dev-models
+          Where=/var/mnt/data/models
+          Type=virtiofs
+          Options=context="system_u:object_r:container_file_t:s0"
+
+          [Install]
+          WantedBy=multi-user.target
+
     # ── Backend environment file ─────────────────────────────────────────────
-    # NOTE: Ansible overwrites this on deploy. Values here are for first-boot only.
-    # Do NOT quote passwords — Podman treats quotes as literal characters.
+    # Placeholder values — Ansible overwrites on every deploy from vault.
+    # IMPORTANT: Do NOT quote values — Podman treats quotes as literal chars.
     - path: /var/home/core/colossus/backend.env
       mode: 0600
       user:
@@ -96,10 +120,11 @@ storage:
           NEO4J_USER=neo4j
           NEO4J_PASSWORD=CHANGEME_ANSIBLE_WILL_OVERWRITE
           QDRANT_URL=http://10.10.100.200:6333
+          FASTEMBED_CACHE_PATH=/data/models
           DOCUMENT_STORAGE_PATH=/data/documents
           RUST_LOG=debug
           BACKEND_PORT=3403
-          CORS_ALLOWED_ORIGINS=https://colossus-legal-dev.cogmai.com,http://localhost:5473
+          CORS_ALLOWED_ORIGINS=https://colossus-legal-dev.cogmai.com
 
     # ── Frontend environment file ────────────────────────────────────────────
     - path: /var/home/core/colossus/frontend.env
@@ -111,22 +136,25 @@ storage:
           COLOSSUS_API_URL=https://colossus-legal-api-dev.cogmai.com
 
     # ── Backend Quadlet container definition ─────────────────────────────────
+    # After= and Requires= ensure both virtiofs mounts are active before
+    # the container starts. Image tag is a placeholder — Ansible overwrites.
     - path: /etc/containers/systemd/colossus-backend.container
       mode: 0644
       contents:
         inline: |
           [Unit]
           Description=Colossus-Legal Backend (Rust/Axum)
-          After=network-online.target var-mnt-data-legal\x2ddocs.mount
+          After=network-online.target var-mnt-data-legal\x2ddocs.mount var-mnt-data-models.mount
           Wants=network-online.target
-          Requires=var-mnt-data-legal\x2ddocs.mount
+          Requires=var-mnt-data-legal\x2ddocs.mount var-mnt-data-models.mount
 
           [Container]
-          Image=ghcr.io/rhrywnak/colossus-backend:v0.2.0
+          Image=ghcr.io/rhrywnak/colossus-legal-backend:v0.2.0
           ContainerName=colossus-backend
           EnvironmentFile=/var/home/core/colossus/backend.env
           PublishPort=3403:3403
           Volume=/mnt/data/legal-docs:/data/documents:rw
+          Volume=/mnt/data/models:/data/models:rw
 
           [Service]
           Restart=always
@@ -142,11 +170,11 @@ storage:
         inline: |
           [Unit]
           Description=Colossus-Legal Frontend (React/nginx)
-          After=network-online.target colossus-backend.service
+          After=network-online.target
           Wants=network-online.target
 
           [Container]
-          Image=ghcr.io/rhrywnak/colossus-frontend:v0.2.0
+          Image=ghcr.io/rhrywnak/colossus-legal-frontend:v0.2.0
           ContainerName=colossus-frontend
           EnvironmentFile=/var/home/core/colossus/frontend.env
           PublishPort=5473:5473
@@ -158,21 +186,23 @@ storage:
           [Install]
           WantedBy=multi-user.target default.target
 
-    # ── Python for Ansible management ────────────────────────────────────────
-    # CoreOS doesn't ship Python. This layered package persists across reboots.
+    # ── install-python.service — required for Ansible ────────────────────────
+    # CoreOS has no Python by default. This one-shot service installs it via
+    # rpm-ostree on first boot so Ansible can manage the VM.
     - path: /etc/systemd/system/install-python.service
       mode: 0644
       contents:
         inline: |
           [Unit]
-          Description=Install Python for Ansible
+          Description=Install Python3 for Ansible
           After=network-online.target
           Wants=network-online.target
           ConditionPathExists=!/usr/bin/python3
 
           [Service]
           Type=oneshot
-          ExecStart=/usr/bin/rpm-ostree install --idempotent python3
+          RemainAfterExit=yes
+          ExecStart=/usr/bin/rpm-ostree install --allow-inactive --idempotent python3
           ExecStartPost=/usr/bin/systemctl reboot
 
           [Install]
@@ -180,7 +210,9 @@ storage:
 
 systemd:
   units:
-    - name: var-mnt-data-legal\x2ddocs.mount
-      enabled: true
-    - name: install-python.service
-      enabled: true
+    - enabled: true
+      name: var-mnt-data-legal\x2ddocs.mount
+    - enabled: true
+      name: var-mnt-data-models.mount
+    - enabled: true
+      name: install-python.service

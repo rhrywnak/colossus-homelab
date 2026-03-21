@@ -32,13 +32,21 @@
         "mode": 420
       },
       {
+        "path": "/etc/systemd/system/var-mnt-data-models.mount",
+        "contents": {
+          "compression": "gzip",
+          "source": "data:;base64,H4sIAAAAAAAC/2zOPUv0QBTF8f5+irB9Nk8dmOJZbCzERkkRQrhmTszIvCz33gnm24u72ln/4Zzf+JqDTfQAXSRcLZTsnkrN1qTiEbXZg1goqza6sYD+rwZxeqgh+TYVXyO0jYX9WSF7WEAXrEXgUo0W2qqQs7G8w4jG2/JEw8bmPPb2/kHDBoHrdpYuZes8G3c/6eW4wv0a6PkGVLeUbPg0d7pD5tqXtw8sNkv/nThkyLyGiNl6/XciGh+zGsc40cDZ4C/HH76vAAAA//8fsCibCwEAAA=="
+        },
+        "mode": 420
+      },
+      {
         "path": "/var/home/core/colossus/backend.env",
         "user": {
           "name": "core"
         },
         "contents": {
           "compression": "gzip",
-          "source": "data:;base64,H4sIAAAAAAAC/2TO0W6zIBwF8Hue5av4DdcuJlxQJZaNQvcH5yWxauwWLEvAPf+Sxrsl5+rkJL+juC5eXQuCXoNPJcb/8+yRPHvK8/KwfzmgbWM40PsUiq+tuDBjOg01rU5MNfzMHVNGHCV3nZDS6Q8OHQjL0XsNTFnXgqS3lL7/IHtCCKp11Z65ss5YDazh7sLsieKxTz0ew7Au0z1FBK2xTuqGjtN1ndGRVW9c1e6iwVJS5ARVGoxjUuqO106DaIQyDzWWGA/BhxjXuPPT3PvdOP1kQ5iX/jMbwvJv++bD0PtbiKl8Lg4E/QYAAP//i3StPSEBAAA="
+          "source": "data:;base64,H4sIAAAAAAAC/2TOUUvDMBQF4Pf8l7XVjk0GeciaaxfNknmT2sdL14aptIuQ1t8vjL2IcJ4OH5xjwK5fqEHFz3Gcd3n+UGS3FNljUey2m6ctuxsHyK8hrr/uxUk411qUvDoIU8MRSBin9hqoVVqTfQdsUXlgbxKF8dSg5h/z/P1vZFOWJXsWzsNxD5IqUR2ATsIfeD50c5dPcQhjYtJWzRGMJ+ctivoPGWK/TOE6J4aN86RtzYdwXi5sL6pXMJJOFj0v10XJKouOhNa2BUkWVa2Mu/1Kuzzv4xhTWtJqDJduXA3hJ+vjZeo+sz5O7DcAAP//N+jX5S0BAAA="
         },
         "mode": 384
       },
@@ -57,7 +65,7 @@
         "path": "/etc/containers/systemd/colossus-backend.container",
         "contents": {
           "compression": "gzip",
-          "source": "data:;base64,H4sIAAAAAAAC/4SRMe/TMBDFd3+KjjAkDv8/UyQPbQGpEkJVK2AIGa7ONbFqn+F8Ttpvj9KSDgiJxZJP773T713zlZy06gMmy+6nuEhmG31MKafiM/bgVxuwF6Ru9eaQk+j1NYe3an0WZEMoU+RLEck7wlKAe5TVCFwEkqIDgcLPET+uL10XbSpDzCTqO5Ckf5vVAX9lx5jMf1NUs40k4Ai5VbsAPZp+sFy6qHng20Rw0XYhOT0Y6rEqX8pKPZ1fIKD5W6U+0ug4UkCST86j0SOwHmJAbSPjM1X/0ZdIo9rnk3dp2EcW8/q+eq3nR32LPgc0OpDomUTfSYoZo34MumjzvCjVPCnVHJFHZ7FVB0wCLAb8BLe0fI9ozbtKqWZHScD79l4mdpubCdmLK3JCXg7R4Rmyl6Xa3wEAAP//KMwdd+oBAAA="
+          "source": "data:;base64,H4sIAAAAAAAC/6SRPW/bMBCGd/4Kj+0g0U06CeCQpC0QoCgCB20H18OFvFiEybv2eJTif1/Isgz0Y8tC4MiXD/ng3X6lqDvzAYuX+FMjk7vjxKXU0nzGPaTVLfgDUli92dSi9ual5rfm5llRHKGOLIeGKUXCVkH2qKsBpMmkTQCFJk2IHy9XIbAvbeZKfwUyB0znE/MdSMv/sWaDv2oULO4VfLO9Y1KIhLIz9xn26Pa9lzaylV6OI8HB+sX+hG6eZvtuWLdX7dpc7n+BjO6SPafMRxqiMGUk/RQTOjuA2J4zWs+CF7Y951ukwTzUpxRL/8Ci7vr9+rqbFvONU83obCa1k4idvzNpdvNGYF+nh0on47/x2bv7Y5DRmO0jyhA97swGi4KogzTCsSzjI3r3bm3M9p6KQkq7UykYbo8u16SxqQVlqTrgM9SkS0W/AwAA//9JlpGOTAIAAA=="
         },
         "mode": 420
       },
@@ -65,7 +73,7 @@
         "path": "/etc/containers/systemd/colossus-frontend.container",
         "contents": {
           "compression": "gzip",
-          "source": "data:;base64,H4sIAAAAAAAC/2yQy2rrQAyG93qKLM9ZxJPeKARm0aYNBEoJCaUL44UyVuwhY6loZKd5+9KLs2k3AoG+D/1/+cLRKnigHDS+WRT2C0mSc5+nT9RgmixV2Ijryb8NYTDHTeT3/3C3N1LPZEfRw1Q4RabCUBuySRgNOwwH4rrIpEMMBK/Ilv+GAMqFsGFk0gpWHTbkmzZoEcVpq6cj48Gdxfufp+bDrLgsZnBGn7Ej/+sMHnmIKtwR2zIm8m5Ada105IIonb1uBAriAdb9LsXcrkXN31zfXs0/B0C5/U5TwYayoZrHdMRTHtctBX8xAyhXnA1Tqr5iU31/8l2fLE77TDpWVdMe+2RjCR8BAAD//yxOxNyPAQAA"
+          "source": "data:;base64,H4sIAAAAAAAC/3SQT0sDQQzF7/kUPephd+o/hMIctFooiJQW8bDsIU7T3aGziWSyW/vtpdLtzUsg5OXxe6/64Gg1vFAOGr8tCvu5JMm5z8UbNZgmCxU24u3kak0YzHET+ecannZG6pnsILovhFNkKg21IYNPZMv/3KCaCxtGJq1h2WFDvmmDllGctno8MO5dGAnSiaDYnQlmw7S8LadwMXjHjvxFPMrglYeowh2xLWIi7wZU10pHLojSxd2NDyXxAKv+K8XcrkTNP9w/3s1OA6DakA4xUA1ryoZqHtMBj3lcNxT8zRSgWnI2TKn+C0/b56Pv+mSx6DPpOftkSzvsk41V/AYAAP//n4u/X3wBAAA="
         },
         "mode": 420
       },
@@ -73,7 +81,7 @@
         "path": "/etc/systemd/system/install-python.service",
         "contents": {
           "compression": "gzip",
-          "source": "data:;base64,H4sIAAAAAAAC/3SPvU7DUAxG9/sUlwcIGZjvUKADW6SCGKIM+XGJxY19ZX+B5u0RVVuxMFvn+DvtmzC68Ew+GhewSnoRR59zbDbMKvGoFnfiPGQKuyPIkhC+1T4rlcxC9+jtgxDee4H/c3tSmfhX3vSY9yd2eLqrV7d6YKnL+dFDCO2B7ItH6sLrViipkM+KsD/ReEBvSDfEylKpw4giX+ZWFU+0FAUJ4lV5Qxv1P7hvDlpG5Gg0qCKE9lLdnTtoetzSsmZwtTrZNeMnAAD//2ozECItAQAA"
+          "source": "data:;base64,H4sIAAAAAAAC/3SQMU7DQBBF+z3FcoAlBfUWAVLQRQREEaXY2BM8Yj1jzXwn9u0RIYloqL/0nt7fvgtjF57JG+MBrJJfxFFqjesZncpDPKjFpTjvK4XlAWRZCCe1r6RSWegexT4J4aMI/J/tSaXlH/q6oFtN7PB8txjdFnuWxfBrCmG7ITtyQ7vwNg+UVcg7RXilvrCc3auJkWfysJqo2aAY8g1jQ5/UYUSRLw0plVr1lFhKAz5STIlb6gcFCeLVe2Ot1f/wfHZQ36BGo70qQthevtmdY6l9nHM/VnAaneza+h0AAP//pccYiVMBAAA="
         },
         "mode": 420
       }
@@ -84,6 +92,10 @@
       {
         "enabled": true,
         "name": "var-mnt-data-legal\\x2ddocs.mount"
+      },
+      {
+        "enabled": true,
+        "name": "var-mnt-data-models.mount"
       },
       {
         "enabled": true,
