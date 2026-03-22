@@ -1,0 +1,107 @@
+variant: fcos
+version: "1.5.0"
+
+# =============================================================================
+# observe.bu — Butane config for VM-314 (Colossus Observe) on pve-3
+# =============================================================================
+#
+# Beszel monitoring hub — single container replacing the old 6-container
+# Prometheus/Grafana/Loki stack. Data stored on virtiofs-mounted ZFS.
+#
+# Transpile:
+#   butane --pretty --strict observe.bu -o observe.ign
+#
+# Deploy:
+#   scp observe.ign root@pve-3:/var/coreos/snippets/
+#
+# Create/recreate VM:
+#   ansible-playbook playbooks/create-vm.yml -e @vars/vm-314-observe.yml
+# =============================================================================
+
+passwd:
+  users:
+    - name: core
+      ssh_authorized_keys:
+        - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ1dOykw0BuYrBAagKc3Ra92H9fNm5Nq8mp2N46mUpD6 roman@proxima-centauri"
+        - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIO2hRW0JQ4RXDYeIScG0WbfxWaxHDGpo/A40aHw+kj+C semaphore-infra@colossus"
+
+storage:
+  directories:
+    # virtiofs mount target (canonical path — CoreOS /mnt → /var/mnt)
+    - path: /var/mnt/data/observe
+      mode: 0755
+
+  files:
+    # ── Hostname ─────────────────────────────────────────────────────────
+    - path: /etc/hostname
+      mode: 0644
+      overwrite: true
+      contents:
+        inline: observe
+
+    # ── Static IP via NetworkManager ─────────────────────────────────────
+    - path: /etc/NetworkManager/system-connections/ens18.nmconnection
+      mode: 0600
+      contents:
+        inline: |
+          [connection]
+          id=ens18
+          type=ethernet
+          interface-name=ens18
+          autoconnect=true
+
+          [ipv4]
+          method=manual
+          addresses=10.10.100.56/24
+          gateway=10.10.100.1
+          dns=10.10.100.53
+
+          [ipv6]
+          method=disabled
+
+    # ── Beszel Hub Quadlet ───────────────────────────────────────────────
+    - path: /etc/containers/systemd/beszel-hub.container
+      mode: 0644
+      contents:
+        inline: |
+          [Unit]
+          Description=Beszel Monitoring Hub
+          After=network-online.target var-mnt-data-observe.mount
+          Wants=network-online.target
+          Requires=var-mnt-data-observe.mount
+
+          [Container]
+          Image=docker.io/henrygd/beszel:latest
+          ContainerName=beszel-hub
+          PublishPort=8090:8090
+          Volume=/mnt/data/observe/beszel:/beszel_data:rw
+
+          [Install]
+          WantedBy=multi-user.target
+
+    # ── virtiofs mount unit ──────────────────────────────────────────────
+    # What= must match the Proxmox directory mapping ID.
+    # Where= must use canonical /var/mnt/data/ path.
+    # SELinux context= is REQUIRED for containers to access virtiofs mounts.
+    - path: /etc/systemd/system/var-mnt-data-observe.mount
+      mode: 0644
+      contents:
+        inline: |
+          [Unit]
+          Description=Mount observe data (virtiofs from host ZFS)
+          After=systemd-modules-load.service
+          Before=multi-user.target
+
+          [Mount]
+          What=observe-data
+          Where=/var/mnt/data/observe
+          Type=virtiofs
+          Options=context="system_u:object_r:container_file_t:s0"
+
+          [Install]
+          WantedBy=multi-user.target
+
+systemd:
+  units:
+    - name: var-mnt-data-observe.mount
+      enabled: true
