@@ -14,3 +14,4 @@ vault_pass*
 # Temp files
 *.tmp
 *.bak
+ignition/
