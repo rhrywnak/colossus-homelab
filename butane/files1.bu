@@ -1,0 +1,143 @@
+variant: fcos
+version: "1.5.0"
+
+# =============================================================================
+# files1.bu — Butane config for VM-317 (Filebrowser file gateway) on pve-3
+# =============================================================================
+#
+# External file access for colossus-legal beta users' attorney.
+# Serves TrueNAS Pool-1/user-share (read-only, over NFSv4) via Filebrowser,
+# fronted by Traefik + Authentik ForwardAuth at files.cogmai.com.
+#
+# Design doc: DOCUMENTS/DESIGN/COLOSSUS_EXTERNAL_FILESHARE_DESIGN_v1.md
+#
+# NOTE: unlike every other Colossus VM, storage here is NFS from TrueNAS
+# (10.10.0.38), not virtiofs from the Proxmox host. TrueNAS export id 13 is
+# pinned to this VM's IP (10.10.100.59) and is read-only with
+# mapall=filebrowser-svc:smbusers.
+#
+# PHASE 2 SCOPE: VM + NFS mount only. The Filebrowser Quadlet is added in
+# Phase 3 once the mount is verified — see the commented block at the bottom.
+#
+# Transpile:
+#   podman run --rm -i quay.io/coreos/butane:release --pretty --strict \
+#     < files1.bu > files1.ign
+#
+# Deploy:
+#   scp files1.ign root@pve-3:/var/coreos/snippets/
+#
+# Create VM:
+#   ansible-playbook playbooks/create-vm.yml -l pve-3 -e @vars/vm-317-files1.yml
+# =============================================================================
+
+passwd:
+  users:
+    - name: core
+      ssh_authorized_keys:
+        - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ1dOykw0BuYrBAagKc3Ra92H9fNm5Nq8mp2N46mUpD6 roman@proxima-centauri"
+        - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIO2hRW0JQ4RXDYeIScG0WbfxWaxHDGpo/A40aHw+kj+C semaphore-infra@colossus"
+
+storage:
+  directories:
+    # NFS mount target (canonical path — CoreOS /mnt → /var/mnt)
+    # No hyphen in the leaf name: keeps the systemd unit name unescaped.
+    - path: /var/mnt/data/fileshare
+      mode: 0755
+    # Filebrowser's own database (local disk, NOT the NFS share)
+    - path: /var/lib/filebrowser
+      mode: 0755
+    # Quadlet directory (should exist, but be explicit)
+    - path: /etc/containers/systemd
+      mode: 0755
+
+  files:
+    # ── Hostname ─────────────────────────────────────────────────────────
+    - path: /etc/hostname
+      mode: 0644
+      overwrite: true
+      contents:
+        inline: files1
+
+    # ── Static IP via NetworkManager ─────────────────────────────────────
+    # Static is MANDATORY here: the TrueNAS NFS export is pinned to this IP.
+    - path: /etc/NetworkManager/system-connections/static.nmconnection
+      mode: 0600
+      contents:
+        inline: |
+          [connection]
+          id=static
+          type=ethernet
+          interface-name=ens18
+          autoconnect=true
+
+          [ipv4]
+          method=manual
+          addresses=10.10.100.59/24
+          gateway=10.10.100.1
+          dns=10.10.100.53
+
+          [ipv6]
+          method=disabled
+
+    # ── NFS mount: TrueNAS user-share (read-only) ────────────────────────
+    # Where= must use the canonical /var/mnt path.
+    # SELinux context= is MANDATORY for container access — NFS has no xattr
+    # support, so :z/:Z on the container volume will fail exactly as it does
+    # on virtiofs.
+    # _netdev + network-online ordering: NFS is unreachable before DHCP/NM.
+    - path: /etc/systemd/system/var-mnt-data-fileshare.mount
+      mode: 0644
+      contents:
+        inline: |
+          [Unit]
+          Description=Mount TrueNAS user-share (NFSv4, read-only)
+          After=network-online.target
+          Wants=network-online.target
+          Before=multi-user.target
+
+          [Mount]
+          What=10.10.0.38:/mnt/Pool-1/user-share
+          Where=/var/mnt/data/fileshare
+          Type=nfs4
+          Options=ro,noatime,_netdev,context="system_u:object_r:container_file_t:s0"
+
+          [Install]
+          WantedBy=multi-user.target
+
+# =============================================================================
+# PHASE 3 — Filebrowser Quadlet (added after the NFS mount is verified)
+# =============================================================================
+# Deliberately NOT enabled at first boot. Image digest, listen port, and the
+# proxy-auth config syntax must be verified against the current release first
+# (open item FS-3). When added, this file remains the rebuild source of truth.
+#
+#     - path: /etc/containers/systemd/filebrowser.container
+#       mode: 0644
+#       contents:
+#         inline: |
+#           [Unit]
+#           Description=Filebrowser — external document access
+#           After=var-mnt-data-fileshare.mount
+#           Requires=var-mnt-data-fileshare.mount
+#           RequiresMountsFor=/var/mnt/data/fileshare
+#
+#           [Container]
+#           Image=docker.io/filebrowser/filebrowser@sha256:PIN_ME
+#           ContainerName=filebrowser
+#           PublishPort=8080:80
+#           Volume=/mnt/data/fileshare:/srv:ro
+#           Volume=/var/lib/filebrowser:/database:Z
+#
+#           [Service]
+#           Restart=always
+#
+#           [Install]
+#           WantedBy=multi-user.target default.target
+# =============================================================================
+
+systemd:
+  units:
+    # Enable the NFS mount unit (must be listed here).
+    # Do NOT enable Quadlet .container units here — they self-enable via [Install].
+    - name: var-mnt-data-fileshare.mount
+      enabled: true
