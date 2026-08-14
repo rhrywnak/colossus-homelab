@@ -1,0 +1,189 @@
+variant: fcos
+version: "1.5.0"
+
+# =============================================================================
+# docs1.bu — Butane config for VM-130 (Paperless-ngx) on pve-1
+# =============================================================================
+#
+# Canonical, searchable document store for the Awad case.
+# Spec:    DOCUMENTS/DESIGN/COLOSSUS_PAPERLESS_INFRASTRUCTURE_SPEC_v1.md
+# Tracker: COLOSSUS_PAPERLESS_EXECUTION_TASK_TRACKER_v1.md
+#
+# STORAGE SPLIT — the single most important thing in this file:
+#
+#   /var/lib/paperless/data    LOCAL DISK   SQLite DB + Whoosh index + classifier
+#                                           SQLite over NFS CORRUPTS. Never move
+#                                           this to a network mount.
+#   /var/mnt/paperless/media   NFS ex. 14   the documents (originals + archive)
+#   /var/mnt/paperless/export  NFS ex. 14   document_exporter output
+#   /var/mnt/usershare         NFS ex. 13   whole user-share dataset; the
+#                                           container is given only the
+#                                           paperless-consume/ subdirectory
+#
+# Nothing irreplaceable lives on local disk: documents are on TrueNAS and the
+# nightly export bundle rebuilds the DB and index.
+#
+# PHASE: Stage C — VM + mounts ONLY. Container Quadlets are added in Stage E,
+# after P-19/P-23 pass and after image digests are pinned (P-25).
+#
+# Transpile:
+#   podman run --rm -i quay.io/coreos/butane:release --pretty --strict \
+#     < docs1.bu > ../ignition/docs1.ign
+#
+# Stage:
+#   scp ../ignition/docs1.ign root@10.10.100.3:/var/coreos/snippets/
+#
+# Create (via SEMAPHORE — build1 has no root SSH to the Proxmox hosts):
+#   playbooks/create-vm.yml  -e @vars/vm-130-docs1.yml  --limit pve-1
+# =============================================================================
+
+passwd:
+  users:
+    - name: core
+      ssh_authorized_keys:
+        - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ1dOykw0BuYrBAagKc3Ra92H9fNm5Nq8mp2N46mUpD6 roman@proxima-centauri"
+        - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIO2hRW0JQ4RXDYeIScG0WbfxWaxHDGpo/A40aHw+kj+C semaphore-infra@colossus"
+
+storage:
+  directories:
+    # ── LOCAL DISK: application state ────────────────────────────────────
+    # SQLite database, Whoosh full-text index, trained classifier model.
+    # Owned by UID 3002 to match the NFS mapall identity, so the container
+    # runs as one uid across local disk and both NFS mounts.
+    - path: /var/lib/paperless
+      mode: 0755
+      user:
+        id: 3002
+      group:
+        id: 3001
+    - path: /var/lib/paperless/data
+      mode: 0770
+      user:
+        id: 3002
+      group:
+        id: 3001
+
+    # ── NFS mount targets ────────────────────────────────────────────────
+    # No hyphens in leaf names: keeps systemd unit names unescaped.
+    - path: /var/mnt/paperless
+      mode: 0755
+    - path: /var/mnt/usershare
+      mode: 0755
+
+    # Quadlet directory (Stage E)
+    - path: /etc/containers/systemd
+      mode: 0755
+
+  files:
+    # ── Hostname ─────────────────────────────────────────────────────────
+    - path: /etc/hostname
+      mode: 0644
+      overwrite: true
+      contents:
+        inline: docs1
+
+    # ── Static IP via NetworkManager ─────────────────────────────────────
+    # MANDATORY: both TrueNAS NFS exports (13, 14) are pinned to this IP.
+    - path: /etc/NetworkManager/system-connections/ens18.nmconnection
+      mode: 0600
+      contents:
+        inline: |
+          [connection]
+          id=ens18
+          type=ethernet
+          interface-name=ens18
+          autoconnect=true
+
+          [ipv4]
+          method=manual
+          addresses=10.10.100.130/24
+          gateway=10.10.100.1
+          dns=10.10.100.53
+
+          [ipv6]
+          method=disabled
+
+    # ── NFS mount: Pool-1/paperless (export 14) — media + export ─────────
+    # SELinux context= is MANDATORY: NFS has no xattr support, so :z/:Z on the
+    # container volume fails exactly as it does on virtiofs.
+    # _netdev + network-online: NFS is unreachable before the network is up.
+    - path: /etc/systemd/system/var-mnt-paperless.mount
+      mode: 0644
+      contents:
+        inline: |
+          [Unit]
+          Description=Mount TrueNAS Pool-1/paperless (media + export)
+          After=network-online.target
+          Wants=network-online.target
+          Before=multi-user.target
+
+          [Mount]
+          What=10.10.0.38:/mnt/Pool-1/paperless
+          Where=/var/mnt/paperless
+          Type=nfs4
+          Options=rw,noatime,_netdev,context="system_u:object_r:container_file_t:s0"
+
+          [Install]
+          WantedBy=multi-user.target
+
+    # ── NFS mount: Pool-1/user-share (export 13) — consume intake ────────
+    # NOTE: this mounts the WHOLE user-share dataset. The container is given
+    # only the paperless-consume/ subdirectory. Export 13 permits more than the
+    # container is granted — deliberate, and pinned to this host only.
+    - path: /etc/systemd/system/var-mnt-usershare.mount
+      mode: 0644
+      contents:
+        inline: |
+          [Unit]
+          Description=Mount TrueNAS Pool-1/user-share (Paperless consume intake)
+          After=network-online.target
+          Wants=network-online.target
+          Before=multi-user.target
+
+          [Mount]
+          What=10.10.0.38:/mnt/Pool-1/user-share
+          Where=/var/mnt/usershare
+          Type=nfs4
+          Options=rw,noatime,_netdev,context="system_u:object_r:container_file_t:s0"
+
+          [Install]
+          WantedBy=multi-user.target
+
+# =============================================================================
+# STAGE E — container Quadlets (added after P-19/P-23 pass)
+# =============================================================================
+# Four containers on a Quadlet .network (NOT a pod — see spec §4.2):
+#   paperless-app        ghcr.io/paperless-ngx/paperless-ngx:<DIGEST>   :8000
+#   paperless-broker     docker.io/valkey/valkey:9-alpine               :6379
+#   paperless-tika       docker.io/apache/tika:<DIGEST>                 :9998
+#   paperless-gotenberg  docker.io/gotenberg/gotenberg:8.33             :3000
+#
+# Only paperless-app publishes a port. Volume mapping for the app:
+#   /var/lib/paperless/data:/usr/src/paperless/data:Z            (local, xattr OK)
+#   /mnt/paperless/media:/usr/src/paperless/media                (NFS, context=)
+#   /mnt/paperless/export:/usr/src/paperless/export              (NFS, context=)
+#   /mnt/usershare/paperless-consume:/usr/src/paperless/consume  (NFS, context=)
+#
+# NOTE the /mnt vs /var/mnt asymmetry: mount units use the canonical /var/mnt
+# path; container Volume= lines use /mnt (the symlink). Documented CoreOS
+# gotcha — getting it backwards yields an empty mount.
+#
+# Gotenberg MUST carry (spec §4.4 — tracking pixels in opposing counsel email):
+#   --chromium-disable-javascript=true
+#   --chromium-allow-list=file:///tmp/.*
+#
+# PAPERLESS_SECRET_KEY comes from Ansible Vault at deploy time, NOT inline here.
+# (authentik.bu has plaintext secrets committed — existing debt, not a pattern
+# to copy.)
+#
+# PAPERLESS_CONSUMER_POLLING=60 — inotify is unreliable over NFS.
+# =============================================================================
+
+systemd:
+  units:
+    # Enable both NFS mounts. Do NOT list Quadlet .container units here —
+    # they self-enable via [Install].
+    - name: var-mnt-paperless.mount
+      enabled: true
+    - name: var-mnt-usershare.mount
+      enabled: true
