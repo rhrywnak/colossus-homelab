@@ -4,6 +4,7 @@
 *~
 .DS_Store
 Thumbs.db
+*.ign
 
 # Secrets — never commit
 *.vault
