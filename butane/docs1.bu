@@ -7,13 +7,16 @@ version: "1.5.0"
 #
 # Canonical, searchable document store for the Awad case.
 # Spec:    DOCUMENTS/DESIGN/COLOSSUS_PAPERLESS_INFRASTRUCTURE_SPEC_v1.md
-# Tracker: COLOSSUS_PAPERLESS_EXECUTION_TASK_TRACKER_v1.md
+# Tracker: COLOSSUS_PAPERLESS_EXECUTION_TASK_TRACKER_v2.md
 #
 # STORAGE SPLIT — the single most important thing in this file:
 #
-#   /var/lib/paperless/data    LOCAL DISK   SQLite DB + Whoosh index + classifier
+#   /var/lib/paperless/data    LOCAL DISK   SQLite DB + tantivy index +
+#                                           llm_index/ + classifier model.
 #                                           SQLite over NFS CORRUPTS. Never move
 #                                           this to a network mount.
+#                                           (3.0 replaced Whoosh with tantivy;
+#                                            the split is unchanged.)
 #   /var/mnt/paperless/media   NFS ex. 14   the documents (originals + archive)
 #   /var/mnt/paperless/export  NFS ex. 14   document_exporter output
 #   /var/mnt/usershare         NFS ex. 13   whole user-share dataset; the
@@ -23,8 +26,10 @@ version: "1.5.0"
 # Nothing irreplaceable lives on local disk: documents are on TrueNAS and the
 # nightly export bundle rebuilds the DB and index.
 #
-# PHASE: Stage C — VM + mounts ONLY. Container Quadlets are added in Stage E,
-# after P-19/P-23 pass and after image digests are pinned (P-25).
+# PHASE: Stage E. This file provides the VM, the mounts, and Python for Ansible.
+# The container Quadlets are NOT here — they are written by the Ansible role
+# colossus-ansible/roles/paperless/. See the Stage E note at the foot of this
+# file for why.
 #
 # Transpile:
 #   podman run --rm -i quay.io/coreos/butane:release --pretty --strict \
@@ -50,9 +55,13 @@ passwd:
 storage:
   directories:
     # ── LOCAL DISK: application state ────────────────────────────────────
-    # SQLite database, Whoosh full-text index, trained classifier model.
-    # Owned by UID 3002 to match the NFS mapall identity, so the container
-    # runs as one uid across local disk and both NFS mounts.
+    # SQLite database, tantivy full-text index, llm_index/, classifier model.
+    #
+    # Owned 3002:3001 because that is what the CONTAINER runs as
+    # (User=3002 / Group=3001 in the Quadlet). It is NOT a single identity
+    # spanning the NFS mounts — Issue #5 ended that idea: export 13 squashes
+    # to 3001 and export 14 to 3002, and mapall makes the client uid
+    # irrelevant on both. This ownership matters for the LOCAL path only.
     - path: /var/lib/paperless
       mode: 0755
       user:
@@ -152,41 +161,91 @@ storage:
           [Install]
           WantedBy=multi-user.target
 
+    # ── Python for Ansible management ────────────────────────────────────
+    # CoreOS doesn't ship Python. This layered package persists across reboots.
+    #
+    # MANDATORY for this host: the Paperless Quadlets are written by the
+    # Ansible role roles/paperless/, and every module it uses (template, file,
+    # systemd, assert) needs a Python interpreter on the target. Without this,
+    # `ansible docs1 -m ping` fails with
+    #     "The module interpreter '/usr/bin/python3' was not found."
+    #
+    # Modelled on colossus-prod-app1.bu. It was omitted here originally because
+    # docs1.bu was modelled on observe.bu, which is not an Ansible target —
+    # the same inheritance-of-omission that cost a rebuild in Issue #4.
+    # Do not model an Ansible-managed host on observe.bu.
+    #
+    # Costs one extra reboot on first boot (before the Zincati update reboot).
+    - path: /etc/systemd/system/install-python.service
+      mode: 0644
+      contents:
+        inline: |
+          [Unit]
+          Description=Install Python for Ansible
+          After=network-online.target
+          Wants=network-online.target
+          ConditionPathExists=!/usr/bin/python3
+
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/bin/rpm-ostree install --idempotent python3
+          ExecStartPost=/usr/bin/systemctl reboot
+
+          [Install]
+          WantedBy=multi-user.target
+
 # =============================================================================
-# STAGE E — container Quadlets (added after P-19/P-23 pass)
+# STAGE E — container Quadlets are NOT in this file
 # =============================================================================
-# Four containers on a Quadlet .network (NOT a pod — see spec §4.2):
-#   paperless-app        ghcr.io/paperless-ngx/paperless-ngx:<DIGEST>   :8000
-#   paperless-broker     docker.io/valkey/valkey:9-alpine               :6379
-#   paperless-tika       docker.io/apache/tika:<DIGEST>                 :9998
-#   paperless-gotenberg  docker.io/gotenberg/gotenberg:8.33             :3000
+# The four container Quadlets, the .network unit and the environment file are
+# written by the ANSIBLE ROLE:
 #
-# Only paperless-app publishes a port. Volume mapping for the app:
-#   /var/lib/paperless/data:/usr/src/paperless/data:Z            (local, xattr OK)
-#   /mnt/paperless/media:/usr/src/paperless/media                (NFS, context=)
-#   /mnt/paperless/export:/usr/src/paperless/export              (NFS, context=)
-#   /mnt/usershare/paperless-consume:/usr/src/paperless/consume  (NFS, context=)
+#     colossus-ansible/roles/paperless/
+#     colossus-ansible/playbooks/deploy-paperless.yml   (hosts: docs_vms)
 #
-# NOTE the /mnt vs /var/mnt asymmetry: mount units use the canonical /var/mnt
-# path; container Volume= lines use /mnt (the symlink). Documented CoreOS
-# gotcha — getting it backwards yields an empty mount.
+# They are deliberately NOT baked in here. Three reasons, in order of weight:
 #
-# Gotenberg MUST carry (spec §4.4 — tracking pixels in opposing counsel email):
-#   --chromium-disable-javascript=true
-#   --chromium-allow-list=file:///tmp/.*
+#   1. PAPERLESS_SECRET_KEY comes from Ansible Vault. A Quadlet baked into
+#      Ignition would reference an EnvironmentFile that does not exist until
+#      Ansible has run, so the container would crash-loop on first boot.
+#      (authentik.bu has plaintext secrets committed — existing debt, not a
+#      pattern to copy.)
+#   2. Re-pinning any of four image digests would otherwise mean a full VM
+#      rebuild instead of a playbook run.
+#   3. The role path is the only container-deployment pattern proven on this
+#      fleet — see roles/colossus-legal/.
 #
-# PAPERLESS_SECRET_KEY comes from Ansible Vault at deploy time, NOT inline here.
-# (authentik.bu has plaintext secrets committed — existing debt, not a pattern
-# to copy.)
+# This file therefore provides exactly three things: the VM identity and
+# network, the two NFS mounts + the local data directory, and Python so
+# Ansible can manage the host.
 #
-# PAPERLESS_CONSUMER_POLLING=60 — inotify is unreliable over NFS.
+# Constraints that live in the role, recorded here so they are not lost:
+#   - Container runs NON-ROOT, User=3002 / Group=3001. Do NOT set USERMAP_UID
+#     or USERMAP_GID: in root mode the image chowns the consume folder to
+#     match, which SUCCEEDS over NFS and locks this client out of it
+#     irrecoverably (Issue #11).
+#   - /mnt vs /var/mnt asymmetry: mount units use the canonical /var/mnt path;
+#     container Volume= lines use /mnt (the symlink). Quadlet's auto-generated
+#     RequiresMountsFor= follows the symlink path and therefore matches
+#     nothing — the role hand-writes RequiresMountsFor=/var/mnt/... as well.
+#   - No :z / :Z on the NFS volumes; these mounts carry SELinux context=.
+#     :Z is correct only on the local data volume.
+#   - Gotenberg MUST carry (spec §4.4 — tracking pixels in opposing counsel
+#     email): --chromium-disable-javascript=true
+#             --chromium-allow-list=file:///tmp/.*
+#   - PAPERLESS_CONSUMER_POLLING_INTERVAL=60 — note the _INTERVAL suffix; the
+#     shorter name does not exist in 3.0.5 and would silently leave inotify
+#     active, which is unreliable over NFS.
 # =============================================================================
 
 systemd:
   units:
     # Enable both NFS mounts. Do NOT list Quadlet .container units here —
-    # they self-enable via [Install].
+    # they self-enable via [Install], and in any case they are written by
+    # Ansible, not by this file.
     - name: var-mnt-paperless.mount
       enabled: true
     - name: var-mnt-usershare.mount
+      enabled: true
+    - name: install-python.service
       enabled: true
